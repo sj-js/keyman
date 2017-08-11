@@ -5,7 +5,7 @@
   "authors": ["SJ <souljungkim@gmail.com>"],
   "license": "MIT",
   "keywords": ["keyman", "key", "command", "wasd", "arrow", "button"],
-  "homepage": "https://github.com/souljungkim/keyman",
+  "homepage": "https://github.com/sj-js/keyman",
   "ignore": [
     "**/.*",
     "node_modules",

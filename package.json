@@ -7,8 +7,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/souljungkim/keyman.git",
-    "web": "https://github.com/souljungkim/keyman"
+    "url": "https://github.com/sj-js/keyman.git",
+    "web": "https://github.com/sj-js/keyman"
   },
   "devDependencies": {
     "gulp": "^3.9.0",
