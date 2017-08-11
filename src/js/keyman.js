@@ -10,13 +10,13 @@
  * 2. How To Use
  *  Example)
  *      1) Create Instance of KeyMan
- *          var keyMan = new KeyMan();
+ *          var keyman = new KeyMan();
  *
  *      2) How To Add Shorcut Key ('name' and 'keys' is Essential Parameter.)
  *          - addShortcut()
- *              keyMan.addShortcut({
+ *              keyman.addShortcut({
  *                  name:'hello shortcut',
- *                  keys:[keyMan.CTRL, keyMan.SHIFT],
+ *                  keys:[keyman.CTRL, keyman.SHIFT],
  *                  keydown:function(event){
  *                      console.log('key down')
  *                  },
@@ -30,17 +30,19 @@
  *
  *      3) How To Chcck Shortcut Key Is Pressed
  *          - isOn() (it just check keydown status)
- *              if (keyMan.isOn('hello shortcut')) console.log('you come')
+ *              if (keyman.isOn('hello shortcut')) console.log('you come')
  *
  *          - check() (it check and remove keydown status. It was created to use alert and popup, but I don't like alert and popup. )
- *              if (keyMan.check('hello shortcut')) alert('');
+ *              if (keyman.check('hello shortcut')) alert('');
  *
  *
  **************************************************/
 function KeyMan(domElement){
     var that = this;
-    var getEl = this.getEl;
-    if (!domElement) domElement = document;
+    this.event = new SjEvent();
+
+    if (!domElement)
+        domElement = document;
     this.downedKeyMap = {};
     this.eventListMap = {};
     this.keyMap = {};
@@ -53,20 +55,20 @@ function KeyMan(domElement){
         var key = that.getKeyFromEvent(event);
         if (key != null)
             that.downedKeyMap[key] = true;
-        that.executeEvent('keydown', event);
-        that.executeEvent('definedkeydown', key);
-        that.executeEvent('pushshortcut', event);
-        that.executeEvent('pushcommand', event);
+        that.execEventListenerByEventName('keydown', event);
+        that.execEventListenerByEventName('definedkeydown', key);
+        that.execEventListenerByEventName('pushshortcut', event);
+        that.execEventListenerByEventName('pushcommand', event);
         return true;
     });
     getEl(domElement).addEventListener('keyup', function(event){
         var key = that.getKeyFromEvent(event);
         if (key != null)
             delete that.downedKeyMap[key];
-        that.executeEvent('keyup', event);
-        that.executeEvent('definedkeyup', key);
-        that.executeEvent('pushshortcut', event);
-        that.executeEvent('pushcommand', event);
+        that.execEventListenerByEventName('keyup', event);
+        that.execEventListenerByEventName('definedkeyup', key);
+        that.execEventListenerByEventName('pushshortcut', event);
+        that.execEventListenerByEventName('pushcommand', event);
         return true;
     });
     return this;
@@ -183,6 +185,75 @@ KeyMan.C = 'C';
 KeyMan.D = 'D';
 
 
+
+/*************************
+ *
+ * DETECT DOM SETUPED WITH KEYMAN OPTION
+ *
+ *************************/
+KeyMan.prototype.detect = function(afterDetectFunc){
+    var that = this;
+    getEl().ready(function(){
+        var setupedElementList;
+        /** 객체탐지 적용(단축키 입력란) **/
+        setupedElementList = document.querySelectorAll('[data-shortcut-input]');
+        for (var j=0; j<setupedElementList.length; j++){
+            that.addShortcutInput(setupedElementList[j]);
+        }
+        /** 객체탐지 적용(커맨드키 입력란) **/
+        setupedElementList = document.querySelectorAll('[data-command-input]');
+        for (var j=0; j<setupedElementList.length; j++){
+            that.addShortcutInput(setupedElementList[j]);
+        }
+        /** Run Function After Detect **/
+        if (afterDetectFunc)
+            afterDetectFunc(that);
+        if (that.hasEventListenerByEventName('afterdetect'))
+            that.execEventListenerByEventName('afterdetect');
+    });
+    return this;
+};
+KeyMan.prototype.afterDetect = function(func){
+    this.addEventListenerByEventName('afterdetect', func);
+    return this;
+};
+
+/*************************
+ *
+ * EVENT - ADD
+ *
+ *************************/
+KeyMan.prototype.addEventListener               = function(element, eventName, eventFunc){ return this.event.addEventListener(element, eventName, eventFunc); };
+KeyMan.prototype.addEventListenerByEventName    = function(eventName, eventFunc){ return this.event.addEventListenerByEventName(eventName, eventFunc); };
+
+/*************************
+ *
+ * EVENT - CHECK
+ *
+ *************************/
+KeyMan.prototype.hasEventListener               = function(element, eventName, eventFunc){ return this.event.hasEventListener(element, eventName, eventFunc); };
+KeyMan.prototype.hasEventListenerByEventName    = function(eventName, eventFunc){ return this.event.hasEventListenerByEventName(eventName, eventFunc); };
+KeyMan.prototype.hasEventListenerByEventFunc    = function(eventFunc){ return this.event.hasEventListenerByEventFunc(eventFunc); };
+
+/*************************
+ *
+ * EVENT - REMOVE
+ *
+ *************************/
+KeyMan.prototype.removeEventListener            = function(element, eventName, eventFunc){ return this.event.removeEventListener(element, eventName, eventFunc); };
+KeyMan.prototype.removeEventListenerByEventName = function(eventName, eventFunc){ return this.event.removeEventListenerByEventName(eventName, eventFunc); };
+KeyMan.prototype.removeEventListenerByEventFunc = function(eventFunc){ return this.event.removeEventListenerByEventFunc(eventFunc); };
+
+/*************************
+ *
+ * EVENT - EXECUTE
+ *
+ *************************/
+KeyMan.prototype.execEventListener              = function(element, eventName, event){ return this.event.execEventListener(element, eventName, event); };
+KeyMan.prototype.execEventListenerByEventName   = function(eventName, event){ return this.event.execEventListenerByEventName(eventName, event); };
+
+
+
 KeyMan.prototype.convertToRightKeyFromKeys = function(keys){
     var rightKey;
     var key;
@@ -255,33 +326,16 @@ KeyMan.prototype.clearKeyDownedMap = function(){
         delete this.downedKeyMap[key];
     }
 };
+KeyMan.prototype.clearCommanderKey = function(){
+    var commanders = this.commanders;
+    for (var commanderName in commanders){
+        var commander = commanders[commanderName];
+        commander.clearDefinedKey();
+    }
+    return this;
+};
 
-KeyMan.prototype.addEventListener = function(eventNm, func){
-    if (!this.eventListMap[eventNm])
-        this.eventListMap[eventNm] = [];
-    this.eventListMap[eventNm].push(func);
-};
-KeyMan.prototype.removeEventListener = function(eventNm, func){
-    var eventList = this.eventListMap[eventNm];
-    if (func){
-        if (eventList && eventList.length > 0){
-            for (var i=0; i<eventList.length; i++){
-                if (func == eventList[i])
-                    eventList.splice(i, 1);
-            }
-        }
-    }else{
-        delete this.eventListMap[eventNm];
-    }
-};
-KeyMan.prototype.executeEvent = function(eventNm, event){
-    var eventList = this.eventListMap[eventNm];
-    if (eventList){
-        for (var i=0; i<eventList.length; i++){
-            eventList[i](event);
-        }
-    }
-};
+
 
 
 /* isOn
@@ -304,6 +358,7 @@ KeyMan.prototype.check = function(downedShortcutName){
         shorcutMap.isPressed = false;
     }
     this.clearKeyDownedMap();
+    this.clearCommanderKey();
     return isTrue;
 };
 
@@ -321,12 +376,15 @@ KeyMan.prototype.addShortcut = function(infoObj){
     var funcKeyUp = infoObj.keyup;
     // 2. Create Function keydown
     var plusFuncKeyDown = function(event){
+        //Validation - Keys isOn?
         for (var i=0; i<keys.length; i++){
             if (!that.isOnKey(keys[i])){
                 that.keyMap[shortcutName].isPressed = false;
                 return false;
             }
         }
+        //Run Shortcut
+        console.log('Shortcut Success!', keys);
         var data = that.keyMap[shortcutName].data;
         if (!that.keyMap[shortcutName].isPressed){
             that.keyMap[shortcutName].isPressed = true;
@@ -359,8 +417,8 @@ KeyMan.prototype.addShortcut = function(infoObj){
         this.keyMap[shortcutName].keyupImpl = plusFuncKeyUp;
         this.keyMap[shortcutName].isPressed = false;
     }
-    this.addEventListener('keydown', plusFuncKeyDown);
-    this.addEventListener('keyup', plusFuncKeyUp);
+    this.addEventListenerByEventName('keydown', plusFuncKeyDown);
+    this.addEventListenerByEventName('keyup', plusFuncKeyUp);
     return this;
 };
 
@@ -374,8 +432,10 @@ KeyMan.prototype.delShortcut = function(shortcutName){
         for (var i=0; i<events.length; i++){
             var eventNm = events[i];
             var eventImplNm = events[i] + 'Impl';
-            if (shortcutMap[eventImplNm])
-                this.removeEventListener(eventNm, shortcutMap[eventImplNm]);
+            if (shortcutMap[eventImplNm]){
+                // console.log(eventImplNm, shortcutMap[eventImplNm]);
+                this.removeEventListenerByEventName(eventNm, shortcutMap[eventImplNm]);
+            }
         }
         delete this.keyMap[shortcutName];
     }
@@ -388,7 +448,7 @@ KeyMan.prototype.delShortcut = function(shortcutName){
  * add a keyPattern
  */
 KeyMan.prototype.addCommand = function(infoObj){
-    this.addEventListener('saveCommand', plusFuncKeyDown);
+    this.addEventListenerByEventName('saveCommand', plusFuncKeyDown);
 };
 /* delKeyPattern
  * delete a keyPattern
@@ -424,25 +484,7 @@ KeyMan.prototype.start = function(){
 
 
 
-/* detect
- * detect view setting
- */
-KeyMan.prototype.detect = function(){
-    var that = this;
-    getEl().ready(function(){
-        /** 객체탐지 적용() **/
-        tempEls = document.querySelectorAll('[data-shortcut-input]');
-        for (var j=0; j<tempEls.length; j++){
-            that.addShortcutInput(tempEls[j]);
-        }
-        /** 객체탐지 적용() **/
-        tempEls = document.querySelectorAll('[data-command-input]');
-        for (var j=0; j<tempEls.length; j++){
-            that.addShortcutInput(tempEls[j]);
-        }
-    });
-    return this;
-};
+
 
 
 
@@ -493,6 +535,10 @@ KeyMan.prototype.setShortcutInputValue = function(inputElement, keyList, seperat
         this.shortcutInputObjs[manid].keyList = sortedKeyList;
     }
 };
+KeyMan.prototype.clearShortcutInputValue = function(inputElement){
+    this.setShortcutInputValue(inputElement, []);
+    return this;
+};
 KeyMan.prototype.sortKeyList = function(keyList){
     var primaryList = ['CONTROL', 'ALT', 'SHIFT'];
     var sortedKeyList = keyList.sort(function(a, b){
@@ -519,11 +565,11 @@ KeyMan.prototype.startPushShortcutInputValue = function(func){
             func(keyDownedList);
         return true;
     };
-    this.addEventListener('pushshortcut', funcPlusPushShortcut);
+    this.addEventListenerByEventName('pushshortcut', funcPlusPushShortcut);
     return this;
 };
 KeyMan.prototype.stopPushShortcutInputValue = function(){
-    this.removeEventListener('pushshortcut');
+    this.removeEventListenerByEventName('pushshortcut');
     return this;
 };
 
@@ -588,55 +634,87 @@ KeyMan.prototype.startPushCommandInputValue = function(func){
             func(keyDownedList);
         return true;
     };
-    this.addEventListener('pushcommand', funcPlusPushCommand);
+    this.addEventListenerByEventName('pushcommand', funcPlusPushCommand);
     return this;
 };
 KeyMan.prototype.stopPushCommandInputValue = function(){
-    this.removeEventListener('pushcommand');
+    this.removeEventListenerByEventName('pushcommand');
     return this;
 };
 
 
 
 
-/**
- * Add Commander
+/*************************
+ *
+ * COMMANDER - Add Commander
  * @param commanderName
  * @returns {KeyManCommander}
- */
+ *
+ *************************/
 KeyMan.prototype.addCommander = function(commanderName){
     var commander;
-    if (!this.commanders[commanderName]){
+    if (!this.getCommander(commanderName)){
         commander = new KeyManCommander(commanderName, this);
         commander.definedKeydownFunc = commander.handleDefinedKeydown();
         commander.definedKeyupFunc = commander.handleDefinedKeyup();
         this.commanders[commanderName] = commander;
-        this.addEventListener('definedkeydown', commander.definedKeydownFunc );
-        this.addEventListener('definedkeyup', commander.definedKeyupFunc );
+        this.addEventListenerByEventName('definedkeydown', commander.definedKeydownFunc );
+        this.addEventListenerByEventName('definedkeyup', commander.definedKeyupFunc );
+    }else{
+        commander = this.getCommander(commanderName);
     }
     return commander;
 };
 
-/**
- * Get Commander
+/*************************
+ *
+ * COMMANDER - Get Commander
  * @param commanderName
- * @returns {*}
- */
+ * @returns {KeyMan}
+ *
+ *************************/
 KeyMan.prototype.getCommander = function(commanderName){
     return this.commanders[commanderName];
 };
 
-/**
- * Del Commander
+/*************************
+ *
+ * COMMANDER - Has Commander
  * @param commanderName
  * @returns {KeyMan}
- */
+ *
+ *************************/
+KeyMan.prototype.hasCommander = function(commanderName){
+    var commanders = this.commanders;
+    if (commanderName){
+        return commanders[commanderName] != null && commanders[commanderName] != undefined;
+    }else{
+        return commanders != null && commanders != undefined && Object.keys(commanders).length > 0;
+    }
+};
+
+
+/*************************
+ *
+ * COMMANDER - Del Commander
+ * @param commanderName
+ * @returns {KeyMan}
+ *
+ *************************/
 KeyMan.prototype.delCommander = function(commanderName){
     var commanders = this.commanders;
     var commander = commanders[commanderName];
-    this.removeEventListener('definedkeydown', commander.definedKeydownFunc );
-    this.removeEventListener('definedkeyup', commander.definedKeyupFunc );
+    this.removeEventListenerByEventName('definedkeydown', commander.definedKeydownFunc );
+    this.removeEventListenerByEventName('definedkeyup', commander.definedKeyupFunc );
     delete commanders[commanderName];
+    return this;
+};
+KeyMan.prototype.delAllCommander = function(){
+    var commanders = this.commanders;
+    for (var commanderName in commanders){
+        this.delCommander(commanderName);
+    }
     return this;
 };
 
@@ -794,15 +872,19 @@ function KeyManCommander(commanderName, superKeyMan){
         if (directionKeyCode != 0 || buttonKeyCode !=0){
             clearTimeout(this.timer);
             this.timer = setTimeout(function(){
-                that.definedKeyOrderList = [];
-                that.standardDefinedKeyOrderList = [];
-                that.lastDirection = null;
-                that.lastBtn = null;
-                // testLog.innerHTML = definedKeyOrderList;
+                that.clearDefinedKey(that);
+                console.log('DownedDefinedKey', that.downedDefinedKeyMap, that.standardDefinedKeyOrderList);
             }, 300);
         }
     };
-
+    this.clearDefinedKey = function(){
+        this.downedDefinedKeyMap = {};
+        this.definedKeyOrderList = [];
+        this.standardDefinedKeyOrderList = [];
+        this.lastDirection = null;
+        this.lastBtn = null;
+        // testLog.innerHTML = definedKeyOrderList;
+    };
     this.getMatchedCommand = function(standardDefinedKeyOrderList){
         var matchedPattern = {};
         var selectedSkillNm = '';
@@ -887,38 +969,3 @@ function KeyManCommander(commanderName, superKeyMan){
         else return 0;
     };
 }
-
-
-
-
-
-
-/*************************
- * getEl
- * do cross browsing
- *************************/
-KeyMan.prototype.getEl = function(id){
-    var el = (typeof id == 'object') ? id : document.getElementById(id);
-    var getEl = {
-        addEventListener : function(eventNm, fn){
-            /* FireFox */
-            if (navigator.userAgent.indexOf('Firefox') != -1){
-                el.addEventListener(eventNm, function(e){window.event=e;}, true);
-            }
-            /*  */
-            if (el.addEventListener){
-                el.addEventListener(eventNm, function(event){
-                    fn(event);
-                });
-                /* IE8 */
-            }else{
-                el.attachEvent('on'+eventNm, function(event){
-                    if (!event.target && event.srcElement) event.target = event.srcElement;
-                    fn(event);
-                });
-            }
-            return true;
-        }
-    };
-    return getEl;
-};
