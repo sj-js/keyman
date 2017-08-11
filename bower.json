@@ -1,7 +1,7 @@
 {
   "name": "keyman",
   "description": "keyman",
-  "main": "dist/keyman.min.js",
+  "main": "dist/js/keyman.min.js",
   "authors": ["SJ <souljungkim@gmail.com>"],
   "license": "MIT",
   "keywords": ["keyman", "key", "command", "wasd", "arrow", "button"],
