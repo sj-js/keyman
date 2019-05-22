@@ -1,72 +1,17 @@
-# keyman
 
-/////////////////////////
-// 구성
-/////////////////////////
-convertToRightKeyFromKeys
-getKeyFromEvent
-convertToKeyFromKeyCode
-convertToKeyCodesFrom
-isOnKey
-checkKey
-clearKeyDownedMap
-addEventListener
-removeEventListener
-executeEvent
-keyman.isOn()
-check
-addShortcut
-delShortcut
-addCommand
-delCommand
-lock
-unlock
-stop
-start
-keyman.detect()
-addShortcutInput
-getShortcutInputById
-getShortcutInputByManId
-setShortcutInputValue
-sortKeyList
-startPushShortcutInputValue
-stopPushShortcutInputValue
-addCommandInput
-getCommandInputById
-getCommandInputByManId
-setCommandInputValue
-startPushCommandInputValue
-stopPushCommandInputValue
-addCommander
-getCommander
-delCommander
-getEl
+[![Build Status](https://travis-ci.org/sj-js/keyman.svg?branch=master)](https://travis-ci.org/sj-js/keyman)
+[![All Download](https://img.shields.io/github/downloads/sj-js/keyman/total.svg)](https://github.com/sj-js/keyman/releases)
+[![Release](https://img.shields.io/github/release/sj-js/keyman.svg)](https://github.com/sj-js/keyman/releases)
+[![License](https://img.shields.io/github/license/sj-js/keyman.svg)](https://github.com/sj-js/keyman/releases)
 
 
 
-KeyManCommander
-addCommand
-addCommandEvent
-addCommandMap
-addCommandEventMap
-defineKey
-setUp
-setDown
-setLeft
-setRight
-setButtonA
-setButtonB
-setButtonC
-setButtonD
-setReverse
-handleDefinedKeydown
-handleDefinedKeyup
-getType
-handleSaveKey
-getMatchedCommand
-executeSkill
-startSkill
-serverReceiveSkill
-getDirectionCodeFromDownKeys
-getReversedDirectionCodeList
-getBtnCodeFromDownKeys
+# KeyMan
+
+(Detail: https://sj-js.github.io/keyman/READEME.html)
+
+
+
+## Getting Started
+
+준비중...
