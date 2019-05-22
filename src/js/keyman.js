@@ -74,6 +74,12 @@ function KeyMan(domElement){
     return this;
 }
 
+/*************************
+ * Exports
+ *************************/
+try{
+    module.exports = exports = KeyMan;
+}catch(e){}
 
 
 
@@ -200,7 +206,7 @@ KeyMan.prototype.detect = function(afterDetectFunc){
         for (var j=0; j<setupedElementList.length; j++){
             that.addShortcutInput(setupedElementList[j]);
         }
-        /** 객체탐지 적용(커맨드키 입력란) **/
+        /** 객체탐지 적용(커맨드키 입력란) **/ //TODO: ??? Maybe not yet implemnets..
         setupedElementList = document.querySelectorAll('[data-command-input]');
         for (var j=0; j<setupedElementList.length; j++){
             that.addShortcutInput(setupedElementList[j]);
