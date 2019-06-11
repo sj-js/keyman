@@ -1,0 +1,25 @@
+language: node_js
+node_js: 11.10.0
+os:
+- linux
+before_script:
+- npm install -g gulp
+script: gulp
+
+cache:
+  directories:
+    - "node_modules"
+
+before_deploy:
+  - pwd
+  - ls dist/js/
+  
+deploy:
+  provider: releases
+  api_key:
+    secure: "gw3icc/rHWa5lkliDto1lDZ7SlUwmNbLGmwoPfjTP7I17hc6hnzSZO4D48kQsAdI58nQYnDfCue/beDgk9qAOGfTmYrrQj/GvkXtdfSkLP0Trr6VgUCZFBhrzdxm+Zl4J+v8SMbal7E1sEemAYSZERPJLl/rzlwhjXzDW2dU2L7ww+OHD8dIC6QwMP037i54fF39kyd78lVxcmgGUAWPfg8ugJLGrFYq36C6c5uDP+f4K5Ch830QUIX3ESeXqW0u72WnVc+OVrBPfjuGlUxktyyje0kQkLrR+szQeGiGwW2pvF5yXh3qmt/wfoV6uhYtCbo1nV3OgZR/ReMoWGUrfM0Yl7elpQOpUesMD+s/7YZc2c2c5YCVOq5Vv+9i2sUIED+ttmDjoIHTNxLLeQVJrOp1V43ljPL2GBj5PPsH1Y4coCff1S+Id5WKDoGc2ycqsRW3aEg5dnaii/x7k+9VD87iZUwuFdBOzM0n6xhljcCSWSbCQPkAKxOFOdjeBiLiLtPu8eJlAfL7BRL/hnH3XwTg4WoaT+8eLZG7lehXIiJOrBw70bEM4LN9zqbB5+1GrKQWU+TBmvCOspOCaMiGp3Nigmb48G87AvW++K7eR1VbolsOYBLgTJw/GY7zNwEf/sc4pkG9u6/puR05TIMvNj5qJSa8dz/eW8IxCE3zeNE="
+  file: dist/js/keyman.min.js
+  skip_cleanup: true
+  on:
+    repo: sj-js/keyman
+    branch: master
