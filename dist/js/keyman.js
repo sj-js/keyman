@@ -533,8 +533,14 @@ KeyMan.prototype.getShortcutInputByManId = function(manid){
     return this.shortcutInputObjs[manid].keyList;
 };
 KeyMan.prototype.setShortcutInputValue = function(inputElement, keyList, seperator){
+    //Seperator
     seperator = (seperator) ? seperator : ' + ';
+    //KeyList
     var sortedKeyList = this.sortKeyList(keyList);
+    //Element
+    if (typeof inputElement == 'string'){
+        inputElement = document.getElementById(inputElement);
+    }
     inputElement.value = (keyList != null) ? sortedKeyList.join(seperator) : '';
     var manid = inputElement.manid;
     if (manid){
