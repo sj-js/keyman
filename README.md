@@ -16,7 +16,7 @@
 
 1. Script
     ```html
-    <script src="https://rawgit.com/sj-js/keyman/master/dist/js/keyman.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/sj-js/keyman/dist/js/keyman.js"></script>
     <script>
          var keyman = new KeyMan();
     </script>

@@ -31,8 +31,8 @@
 
 1. 스크립트 불러오기
     ```html    
-    <script src="https://rawgit.com/sj-js/crossman/master/dist/js/crossman.js"></script>
-    <script src="https://rawgit.com/sj-js/keyman/master/dist/js/keyman.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/sj-js/crossman/dist/js/crossman.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/sj-js/keyman/dist/js/keyman.js"></script>
     <script>
         var keyman = new KeyMan();
     </script>
