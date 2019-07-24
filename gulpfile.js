@@ -73,26 +73,26 @@ gulp.task('clean-res', function(){
 /** js **/
 gulp.task('js', function(){
     return gulp.src(paths.src.js)
-        .pipe(jshint())
-        .pipe(jshint.reporter('default'))
-        .pipe(concat(package.name +'.js'))
-        .pipe(gulp.dest(paths.dest.js))
-        .pipe(stripDebug())
-        .pipe(uglify({mangle:{toplevel:false}}))
-        .pipe(rename({suffix:fileSuffix}))
-        .pipe(gulp.dest(paths.dest.js));
+            .pipe(jshint())
+            .pipe(jshint.reporter('default'))
+            .pipe(concat(package.name +'.js'))
+            .pipe(gulp.dest(paths.dest.js))
+            .pipe(stripDebug())
+            .pipe(uglify({mangle:{toplevel:false}}))
+            .pipe(rename({suffix:fileSuffix}))
+            .pipe(gulp.dest(paths.dest.js));
 });
 
 /** css **/
 gulp.task('css', function(){
     return gulp.src(paths.src.css)
-        .pipe(csslint())
-        .pipe(csslint.formatter("compact"))
-        .pipe(concatcss(package.name +'.css'))
-        .pipe(gulp.dest(paths.dest.css))
-        .pipe(uglifycss())
-        .pipe(rename({suffix:fileSuffix}))
-        .pipe(gulp.dest(paths.dest.css));
+            .pipe(csslint())
+            .pipe(csslint.formatter("compact"))
+            .pipe(concatcss(package.name +'.css'))
+            .pipe(gulp.dest(paths.dest.css))
+            .pipe(uglifycss())
+            .pipe(rename({suffix:fileSuffix}))
+            .pipe(gulp.dest(paths.dest.css));
 });
 
 /** res **/
