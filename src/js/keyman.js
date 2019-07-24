@@ -428,6 +428,11 @@ KeyMan.prototype.addShortcut = function(infoObj){
     return this;
 };
 
+KeyMan.prototype.hasShortcut = function(shortcutName){
+    var shortcutMap = this.keyMap[shortcutName];
+    return !!shortcutMap;
+};
+
 /* delShortcut
  * delete a shortcut key
  */
