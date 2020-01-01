@@ -1,10 +1,15 @@
 {
-  "name": "keyman",
-  "version": "0.0.1",
+  "name": "@sj-js/keyman",
+  "version": "1.0.3",
   "description": "keyman",
-  "main": "",
+  "main": "./index.js",
   "author": "souljungkim@gmail.com",
   "license": "MIT",
+  "scripts": {
+    "build": "gulp",
+    "deploy": "npm publish",
+    "gitk": "gitk"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/sj-js/keyman.git",

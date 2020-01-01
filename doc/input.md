@@ -36,5 +36,33 @@
     </body>
     ```
 
-- getShortcutInputValue(ID)
+- getShortcutInputById(ID)
 - setShortcutInputValue(Element, keyList, seperator)
+
+
+## Command Input 
+- 사용자로부터 단축키를 입력받을 수 있습니다.
+    *@* *!* *@*
+    ```html
+    <script>
+         keyman.detect();     
+    </script>
+    <body>
+        <input id="command1" data-command-input  style="width:200px; height:30px;" />
+        <button onclick="document.getElementById('tester').innerHTML = keyman.getCommandInputById('command1');">CHECK</button>
+        <br/>
+      
+        <input id="command2" data-command-input  style="width:200px; height:30px;" />
+        <button onclick="document.getElementById('tester').innerHTML = keyman.getCommandInputById('command2');">CHECK</button>
+        <br/>
+      
+        <input id="command3" data-command-input  style="width:200px; height:30px;" />
+        <button onclick="document.getElementById('tester').innerHTML = keyman.getCommandInputById('command3');">CHECK</button>
+        <br/>
+      
+        <div id="tester"></div>
+    </body>
+    ```
+  
+- getCommandInputById(ID)
+- setCommandInputValue(Element, keyList, seperator)

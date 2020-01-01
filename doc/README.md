@@ -78,26 +78,68 @@
     ```html
     <script>    
         function showSkill(skillText){
-            if (!window.countSkill)
-               window.countSkill = 0;
+            window.countSkill = (!window.countSkill) ? 0 : window.countSkill;
+            var prefix = ((++window.countSkill) % 2) ? '! ' : '';
+            document.getElementById('tester').innerHTML = prefix + skillText;
+        }   
+     
+        keyman.addCommander('1p', true)
+               .addCommandMap({
+                    'uppercut': [KeyMan.SHIFT, KeyMan.SHIFT, KeyMan.SHIFT],
+                    'rabekku': [KeyMan.SHIFT, KeyMan.SHIFT, KeyMan.A],
+                    'dropkick': [KeyMan.CTRL, KeyMan.CTRL, KeyMan.D],        
+               })
+               .addCommandEventMap({
+                    'uppercut': function(){
+                        showSkill('Upper Cut !');
+                    },
+                    'dropkick': function(){             
+                        showSkill('Drop Kick !!');
+                    },
+                    'rabekku': function(){                
+                        showSkill('Rabekku !!!');             
+                    }
+               });            
+    </script>
+    
+    <body>
+        Click here and Test key<br/>
+        - Direction: ↑:W  ←:A  ↓:S  →:D <br/>
+        - Uppercut: →↓↘→  Y  <br/>
+        - Dropkick: →→  H  <br/>
+        - Rabekku : ←→  T   <br/>
+       <br/>
+       <div id="tester" style="color:#FF832C; font-weight:bold;"></div>        
+    </body>    
+    ```
+    
+3. Test - Command(defined)    
+    *@* *!* *@*
+    ```html
+    <script>    
+        function showSkill(skillText){
+            window.countSkill = (!window.countSkill) ? 0 : window.countSkill;
             var prefix = ((++window.countSkill) % 2) ? '! ' : '';
             document.getElementById('tester').innerHTML = prefix + skillText;        
         }   
      
-        keyman.addCommander('1p').setUp(['w']).setDown(['s']).setLeft(['a']).setRight(['d']).setButtonA(['t']).setButtonB(['y']).setButtonC(['g']).setButtonD(['h']).addCommandMap({
-            'uppercut': [KeyMan.RIGHT, KeyMan.DOWN, KeyMan.DOWNRIGHT, KeyMan.RIGHT, KeyMan.B],
-            'rabekku': [KeyMan.LEFT, KeyMan.RIGHT, KeyMan.A],
-            'dropkick': [KeyMan.RIGHT, KeyMan.RIGHT, KeyMan.D],        
-        }).addCommandEventMap({
-            'uppercut': function(){
-                showSkill('Upper Cut !');
-            },
-            'dropkick': function(){             
-                showSkill('Drop Kick !!');
-            },
-            'rabekku': function(){                
-                showSkill('Rabekku !!!');             
-            }
+        keyman.addCommander('1p')
+           .setUp(['w']).setDown(['s']).setLeft(['a']).setRight(['d']).setButtonA(['t']).setButtonB(['y']).setButtonC(['g']).setButtonD(['h'])
+           .addCommandMap({
+                'uppercut': [KeyMan.RIGHT, KeyMan.DOWN, KeyMan.DOWNRIGHT, KeyMan.RIGHT, KeyMan.B],
+                'rabekku': [KeyMan.LEFT, KeyMan.RIGHT, KeyMan.A],
+                'dropkick': [KeyMan.RIGHT, KeyMan.RIGHT, KeyMan.D],        
+           })
+           .addCommandEventMap({
+                'uppercut': function(){
+                    showSkill('Upper Cut !');
+                },
+                'dropkick': function(){             
+                    showSkill('Drop Kick !!');
+                },
+                'rabekku': function(){                
+                    showSkill('Rabekku !!!');             
+                }
         });            
     </script>
     
