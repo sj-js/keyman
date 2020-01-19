@@ -1,8 +1,4 @@
 /****************************************************************************************************
- *      KeyMan
- *      created by SUJKIM
- ****************************************************************************************************/
-/****************************************************************************************************
  * 1. You can make shortcut keys and event
  *      - I recommend that DO NOT USE these method (ALERT, WINDOW.POPUP) When using EVENT 'keydown'
  *
@@ -51,7 +47,9 @@ try{
     ;
 }catch(e){}
 
-
+/***************************************************************************
+ * Module
+ ***************************************************************************/
 function KeyMan(domElement){
     var that = this;
     this.event = new SjEvent();
@@ -174,8 +172,7 @@ KeyMan.prototype.keyCodeMap = {
     222:"'"
 };
 
-/* Basical Final KeyCodeMap
- */
+/* Basical Final KeyCodeMap */
 KeyMan.prototype.rightKeyMap = {
     CTRL:'CONTROL',
     ESC:'ESCAPE',
@@ -445,7 +442,7 @@ KeyMan.prototype.addShortcut = function(infoObj){
             }
         }
         //Run Shortcut
-        console.log('Shortcut Success!', keys);
+        // console.log('Shortcut Success!', keys);
         var data = that.keyMap[shortcutName].data;
         if (!that.keyMap[shortcutName].isPressed){
             that.keyMap[shortcutName].isPressed = true;
@@ -752,13 +749,8 @@ KeyMan.prototype.addCommander = function(commanderName, modeDefinedKey){
     if (!this.getCommander(commanderName)){
         commander = new KeyManCommander(commanderName);
         commander.parent = this;
-        if (modeDefinedKey){
-            commander.keydownFunc = commander.handleDefinedKeydown();
-            commander.keyupFunc = commander.handleDefinedKeyup();
-        }else{
-            commander.keydownFunc = commander.handleKeydown();
-            commander.keyupFunc = commander.handleKeyup();
-        }
+        commander.keydownFunc = (modeDefinedKey) ? commander.handleDefinedKeydown() : commander.handleKeydown();
+        commander.keyupFunc = (modeDefinedKey) ? commander.handleDefinedKeyup() : commander.handleKeyup();
         this.commanders[commanderName] = commander;
         this.addEventListenerByEventName('keydownforcommand', commander.keydownFunc );
         this.addEventListenerByEventName('keyupforcommand', commander.keyupFunc );
@@ -947,7 +939,7 @@ function KeyManCommander(commanderName){
                 this.definedKeyOrderList.push(key);
                 this.standardDefinedKeyOrderList.push(key);
             }
-            console.log('DownedDefinedKey', that.downedDefinedKeyMap, that.standardDefinedKeyOrderList);
+            console.log('DownedKey', that.downedDefinedKeyMap, that.standardDefinedKeyOrderList);
         }
         //Event
         (this.funcEventWhenCommand && this.funcEventWhenCommand(this.standardDefinedKeyOrderList));
@@ -963,7 +955,7 @@ function KeyManCommander(commanderName){
             clearTimeout(this.timer);
             this.timer = setTimeout(function(){
                 that.clearDefinedKey(that);
-                console.log('DownedDefinedKey (Clean)', that.downedDefinedKeyMap, that.standardDefinedKeyOrderList);
+                console.log('DownedKey (Clean)', that.downedDefinedKeyMap, that.standardDefinedKeyOrderList);
             }, 300);
         }
     };
@@ -1028,6 +1020,7 @@ function KeyManCommander(commanderName){
         for (var skillNm in this.commandMap){
             var pattern = JSON.stringify(this.commandMap[skillNm]);
             pattern = pattern.substring(1, pattern.length-1);
+            console.error('[Compare]',  orderStr, pattern);
             if (orderStr.indexOf(pattern) != -1)
                 matchedPattern[skillNm] = pattern;
         }
