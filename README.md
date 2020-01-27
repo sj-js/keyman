@@ -14,16 +14,25 @@
 
 ## Getting Started
 
-1. Load
-    ```html    
-    <script src="https://cdn.jsdelivr.net/npm/@sj-js/crossman/dist/js/crossman.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@sj-js/keyman/dist/js/keyman.min.js"></script>
-    <script>
-         var keyman = new KeyMan();
-    </script>
-    ```  
+0. Load
+    - Browser
+        ```html    
+        <script src="https://cdn.jsdelivr.net/npm/@sj-js/crossman/dist/js/crossman.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@sj-js/keyman/dist/js/keyman.min.js"></script>
+        <script>
+            var keyman = new KeyMan();
+        </script>
+        ```
+    - ES6+ 
+        ```bash
+        npm i @sj-js/keyman
+        ```
+        ```js
+        const KeyMan = require('@sj-js/keyman');
+        const keyman = new KeyMan();
+        ```
 
-2. Shortcut 등록
+1. Shortcut 등록
     ```js
     keyman.addShortcut({   
         name:'develop-tool',
@@ -37,7 +46,7 @@
     });
     ```
 
-3. Simple Example
+2. Simple Example
     ```html 
     <!DOCTYPE html>
     <HTML>
