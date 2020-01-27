@@ -1,54 +1,88 @@
 # KeyMan
-
+## ⌨
 [![Build Status](https://travis-ci.org/sj-js/keyman.svg?branch=master)](https://travis-ci.org/sj-js/keyman)
 [![All Download](https://img.shields.io/github/downloads/sj-js/keyman/total.svg)](https://github.com/sj-js/keyman/releases)
 [![Release](https://img.shields.io/github/release/sj-js/keyman.svg)](https://github.com/sj-js/keyman/releases)
 [![License](https://img.shields.io/github/license/sj-js/keyman.svg)](https://github.com/sj-js/keyman/releases)
-(Detail: https://sj-js.github.io/sj-js/keyman)
+
+- 쉽게 Key Event를 다룰 수 있습니다.
+- 동시에 1개 이상의 키를 누를 때 발생하는 `Shorcut`와 순차적으로 키를 누를 때 발생하는 `Command`로 나뉩니다.
+- ✨ Source: https://github.com/sj-js/keyman
+- ✨ Document: https://sj-js.github.io/sj-js/keyman
 
 
 
 ## Getting Started
 
-1. Script
-    ```html
-    <script src="https://cdn.jsdelivr.net/gh/sj-js/keyman/dist/js/keyman.js"></script>
+1. Load
+    ```html    
+    <script src="https://cdn.jsdelivr.net/npm/@sj-js/crossman/dist/js/crossman.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sj-js/keyman/dist/js/keyman.min.js"></script>
     <script>
          var keyman = new KeyMan();
     </script>
     ```  
+
+2. Shortcut 등록
+    ```js
+    keyman.addShortcut({   
+        name:'develop-tool',
+        keys: ['ctrl', 'shift'],
+        keydown: function(event){
+            //Something to do when shorcut keys are down             
+        },
+        keyup: function(event){
+            //Something to do when shorcut keys are up
+        }
+    });
+    ```
+
+3. Simple Example
+    ```html 
+    <!DOCTYPE html>
+    <HTML>
+        <head>
+            <script src="https://cdn.jsdelivr.net/npm/@sj-js/crossman/dist/js/crossman.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@sj-js/keyman/dist/js/keyman.min.js"></script>
+            <script>
+                var keyman = new KeyMan();
+            </script>
+            <style>
+                * { margin:0; cursor:pointer; }
+                div:focus { background-color: Aqua; }
+            </style>
+        </head>
     
-2. Add shortcut     
-    ```html
-    <script>
-        keyman.addShortcut({
-            name:'shortcut-1',
-            keys:['control','shift'],
-            keydown:function(){
-                document.getElementById('tester').innerHTML = 'shortcut-1 ON';                                                        
-            },
-            keyup:function(){
-                document.getElementById('tester').innerHTML = 'shortcut-1 OFF';
-            }
-        });
-      
-        keyman.addShortcut({
-            name:'shortcut-2',
-            keys:['shift','1'],
-            keydown:function(){
-                document.getElementById('tester').innerHTML = 'shortcut-2 ON';                                                        
-            },
-            keyup:function(){
-                document.getElementById('tester').innerHTML = 'shortcut-2 OFF';
-            }
-        });           
-    </script>
-  
-    <body>
-        <div style="padding:10px; border:2px dashed #97A1FF;">Click here and Test shortcut</div>
-        - shortcut-1: [Ctrl] + [Shift]<br/>
-        - shortcut-2: [Shift] + [1]<br/>
-        <div id="tester"></div>
-    </body> 
+        <script>
+            keyman.addShortcut({
+                name:'develop-tool',
+                keys: ['ctrl', 'shift'],
+                keydown: function(event){
+                    document.getElementById('tester').innerHTML = 'KEY ON';
+                },
+                keyup: function(event){
+                    document.getElementById('tester').innerHTML = 'KEY OFF';
+                }
+            });
+    
+            keyman.addShortcut({
+                name:'copy-then',
+                keys: ['ctrl', 'c'],
+                keydown: function(event){
+                    document.getElementById('tester').innerHTML = 'COPY ON';
+                },
+                keyup: function(event){
+                    document.getElementById('tester').innerHTML = 'COPY AND..';
+                }
+            });
+        </script>
+    
+        <body>
+            <div tabindex="0" style="width:500px; height:500px; border:1px solid black;">
+                Click here and Test key [Ctrl] + [Shift]
+                <div id="tester" style="color:#FF832C; font-weight:bold;"></div>
+            </div>
+        </body>
+    </HTML>
     ```
     
