@@ -158,7 +158,7 @@ For convenience, 1-1 code, which loads and creates a Library in the example, is 
                     'hello': ['S', 'J', 'J', 'S']
                })
                .addCommandEventMap({
-                    'develop-pop': function(){ showSkill('Upper Cut !'); },
+                    'develop-pop': function(){ showSkill('Did you like [SHIFT]?'); },
                     'hello': function(){ showSkill('SJ JS so Good!!'); },
                });   
     </script>
