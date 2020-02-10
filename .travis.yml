@@ -12,22 +12,23 @@ cache:
     - "node_modules"
 
 before_deploy:
+  - npm install
   - pwd
   - ls dist/js/
-  
+
 deploy:
   - provider: releases
+    edge: true
     api_key:
       secure: "d6ZKHfTnik/h7iNMTf0todVIQIPmsLX0bIgCgGxaL9Z5NUadCSiF4mT0mGnBd1c8ghlaVUwpEAy/kvWuozGhgyJAX4uuxNaO59Hp9y31g0JbiT2ZmhyLcelJ2ZgwSmDn8HxPSrBgubtc+Q3K4I1KW27Hzjfn3jIA7sHUqHzxqgvZV91RPJ5Oqkrqpcbj/hZg/oL1FnSUD2ixyF+v0GYudy6ftgQ8orbfZHwe6HS7GQ+Caw3QMzq256msWCAPgq4dRg9c9sGox+IydZU2FFRuHkh6v99HfY7S7qhZTXBu4A8yp2H4bQR9RAsLj/BnHi+MeqpKxuLALFkWGliutmfb7A/HBDJ0/ytrBL7HCsPrUy5gUDSL2VJWaBe1zW++sV/LftyK3jd3TRJ9pKkjZbM9mcZDNMrA2d4+myvNgm5TIr3b+o1otfEfcN+6wDhMrq8L2cl6fkwE0EZ7QdFLcIznG2wSeItQCGme4zjxbRdV4Mv7F1eo1vbl+kwaNbxcGw+Y4qwkVdH/WgmyD/pfsbcy6BiD2thfBbaTTYCih+m0HaDR0Y3Zw7djD/b9V2bo2pyiQUerpZ0werGw+bbXR+RA7RRn0BFJ+dus/2dBZVPjWG50jhDpOXkoHoEWXyjYfUxHL4NTm58W10Ab4QM/87yj//Oy5WOD3FMDnwAHV3e5ZuI="
     file:
       - dist/js/keyman.min.js
-    skip_cleanup: true
     on:
       repo: sj-js/keyman
       branch: master
   - provider: npm
+    edge: true
     email: "$NPM_EMAIL"
     api_key: "$NPM_API_TOKEN"
-    skip_cleanup: true
     on:
       branch: master

@@ -1,7 +1,8 @@
 {
   "name": "@sj-js/keyman",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "keyman",
+  "homepage": "https://sj-js.github.io/sj-js/keyman",
   "main": "./index.js",
   "author": "souljungkim@gmail.com",
   "license": "MIT",
@@ -16,7 +17,7 @@
     "web": "https://github.com/sj-js/keyman"
   },
   "dependencies": {
-    "@sj-js/crossman": "^1.0.7"
+    "@sj-js/crossman": "^1.1.1"
   },
   "devDependencies": {
     "gulp": "^4.0.2",
