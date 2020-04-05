@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<HTML>
+    <head>
+        <meta charset="utf-8" />
+        <meta name=viewport content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+        <script src="../../crossman/src/js/crossman.js"></script>
+        <link rel=stylesheet href="../src/css/keyman-view.css">
+        <script src="../src/js/keyman.js"></script>
+        <script src="../src/js/keyman-view.js"></script>
+        <style>
+            * { margin:0; }
+            /*div:focus { background-color: Aqua; }*/
+        </style>
+    </head>
+
+    <script>
+        ready(function(){
+            showKeyMapView();
+        });
+        var keyman = new KeyMan();
+        var keymanView = new KeyMan.View(keyman);
+        keyman
+                // .addEventListener('shortcutkeydown', function(eventData){
+                //     if (!eventData.keyStepList)
+                //         return;
+                //     //Shortcut
+                //     getEl('div-show-shortcut').html('');
+                //     // KeyMan.View.generateShortcutViewForKeyStepList(keyStepList).appendTo('div-show-command');
+                //     KeyMan.View.generateCommandViewForKeyStepList(eventData.keyStepList).appendTo('div-show-shortcut');
+                // })
+                // .addEventListener('shortcutkeyup', function(eventData){
+                // })
+                // .addEventListener('commandkeydown', function(eventData){
+                //     if (!eventData.keyStepList)
+                //         return;
+                //     //Command
+                //     getEl('div-show-command').html('');
+                //     KeyMan.View.generateCommandViewForKeyStepList(eventData.keyStepList).appendTo('div-show-command');
+                // })
+                // .addEventListener('commandkeyup', function(eventData){
+                // })
+                .addEventListener('addedkey', function(eventData){
+                    console.error('addedkey!!', eventData);
+                    showKeyMapView();
+                })
+                .addEventListener('modifiedkey', function(eventData){
+                    console.error('modifiedkey!!', eventData);
+                    showKeyMapView();
+                })
+                .addEventListener('removedkey', function(eventData){
+                    console.error('removedkey!!', eventData);
+                    showKeyMapView();
+                })
+                .addEventListener('addedmap', function(eventData){
+                    console.error('addedmap!!', eventData);
+                    showKeyMapView();
+                })
+                .addEventListener('modifiedmap', function(eventData){
+                    console.error('modifiedmap!!', eventData);
+                    showKeyMapView();
+                })
+                .addEventListener('removedmap', function(eventData){
+                    console.error('removedmap!!', eventData);
+                    showKeyMapView();
+                })
+                .addEventListener('execute', function(eventData){
+                    console.error('execute!!', eventData);
+                    var functionKey = eventData.functionKey
+                    var runner = eventData.runner;
+                    var data = eventData.data;
+                    if (runner !== null){
+                        if (typeof runner == 'string'){
+                            if (runner){
+                                var func = new Function('data', runner);
+                                func(data);
+                            }else{
+                                runByCode(runner, data);
+                            }
+                        }else if (runner instanceof Function){
+                            runner(data);
+                        }
+                    }
+                    //- OR
+                    keyman.getRunnerPool().run(runner, data);
+                })
+                .addEventListener('untypeable', function(eventData){
+                    getEl('div-show-signal').setStyle('color', 'red');
+                })
+                .addEventListener('typeable', function(eventData){
+                    getEl('div-show-signal').setStyle('color', 'green');
+                })
+                .detect(function(keyman){
+
+                });
+
+        keyman.add({
+            name:'develop-tool',
+            title: 'Open temporal view',
+            keys: ['ctrl', 'shift'],
+            runner: 'A',
+            keydown: function(event){
+                document.getElementById('tester').innerHTML = 'KEY ON';
+            },
+            keyup: function(event){
+                document.getElementById('tester').innerHTML = 'KEY OFF';
+            }
+        });
+
+        keyman.add({
+            name:'copy-then',
+            title: 'copy something blahblah',
+            keys: ['ctrl', 'c'],
+            runner: 'B',
+            keydown: function(event){
+                document.getElementById('tester').innerHTML = 'COPY ON';
+            },
+            keyup: function(event){
+                document.getElementById('tester').innerHTML = 'COPY AND..';
+            }
+        });
+        // keyman.remove('copy-then');
+
+        keyman.add({
+            name:'open-tool-simplely',
+            title: 'Open finder',
+            keys: [['shift'], ['shift']],
+            runner: 'B',
+            keydown: function(event){
+                document.getElementById('tester').innerHTML = 'Simple Open Tool Down';
+            },
+            keyup: function(event){
+                document.getElementById('tester').innerHTML = 'Simple Open Tool Up';
+            }
+        });
+
+
+        keyman.add({
+            name:'test-simplely',
+            title: 'Welcome to SJJS',
+            keys: [['s'], ['j'], ['j'], ['s']],
+            runner: 'C',
+            keydown: function(event){
+                document.getElementById('tester').innerHTML = 'Simple Test Down';
+            },
+            keyup: function(event){
+                document.getElementById('tester').innerHTML = 'Simple Test Up';
+            }
+        });
+        // keyman.remove('test-simplely');
+
+        keyman.getRunnerPool()
+            .add({id: 'A', title: 'A 123asdf', execute: function(data){
+                console.error('A');
+            }})
+            .add({id: 'B', title: 'B 123asdf', execute: function(data){
+                console.error('B');
+            }})
+            .add({id: 'C', title: 'C asd434f', execute: function(data){
+                console.error('C');
+            }})
+        ;
+
+        keyman.getRunnerPool().getRunnerMap();
+        keyman.getRunnerPool().run('123', {a:1, b:2});
+
+
+        function showKeyMapView(){
+            getEl('div-tool-key-map').exists(function(it){
+                it.html('');
+                keymanView.generateToolViewForKeyMap(keyman.getUser(), 'div-show-key-map').appendTo('div-tool-key-map');
+            });
+            // getEl('div-show-key-map').exists(function(it){
+            //     it.html('');
+            //     var data = keyman.getSystem().get('_default').extractData();
+            //     keymanView.generateTableViewForKeyMap( data ).appendTo('div-show-key-map');
+            //     keymanView.generateButtonViewForKeyAdditionButton().appendTo('div-show-key-map');
+            // });
+        }
+    </script>
+
+    <body>
+        <div id="div-tool-key-map">
+
+        </div>
+        <div id="div-show-key-map" class="light-keys" style="max-width:500px;">
+            [Ctrl] + [Shift]
+        </div>
+
+        <div id="tester" style="color:#FF832C; font-weight:bold;">
+            TEST...
+        </div>
+
+        <div id="div-show-signal" class="" style="color:grey;">
+            ●
+        </div>
+
+<!--        <div id="div-show-shortcut" class="show-pannel light-keys">-->
+<!--        </div>-->
+<!--        <br/>-->
+
+<!--        <div id="div-show-command" class="show-pannel light-keys">-->
+<!--        </div>-->
+<!--        <br/>-->
+
+<!--        <div class="">-->
+<!--            <input id="input1" data-shortcut-input type="text"  /><br/>-->
+<!--            <input id="input2" data-shortcut-input type="text"  /><br/>-->
+<!--        </div>-->
+    </body>
+
+</HTML>
