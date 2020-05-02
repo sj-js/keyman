@@ -5,13 +5,14 @@ try{
     var crossman = require('@sj-js/crossman');
     var KeyMan = require('@sj-js/keyman');
     var ready = crossman.ready,
-        getClass = crossman.getClass,
+        getClazz = crossman.getClazz,
         getEl = crossman.getEl,
         newEl = crossman.newEl,
         forEl = crossman.forEl,
         ifEl = crossman.ifEl,
         getData = crossman.getData,
-        SjEvent = crossman.SjEvent
+        SjEvent = crossman.SjEvent,
+        SjAnimation = crossman.SjAnimation
         ;
 }catch(e){}
 
@@ -25,7 +26,42 @@ try{
 KeyMan.View = function(keyman){
     this.keyman = keyman;
     this.latestUserInputKeyStepList = null;
+    this.currentKeyCluster = null;
     this.currentKeyMap = null;
+    this.targetKeyMapContextElement = null;
+    this.targetKeyMapToolPanelElement = null;
+    this.targetKeyMapViewPanelElement = null;
+
+    var that = this;
+    keyman
+        .addEventListener('addedkey', function(eventData){
+            console.error('addedkey!!', eventData);
+            that.refresh();
+        })
+        .addEventListener('modifiedkey', function(eventData){
+            console.error('modifiedkey!!', eventData);
+            that.refresh();
+        })
+        .addEventListener('removedkey', function(eventData){
+            console.error('removedkey!!', eventData);
+            that.refresh();
+        })
+        .addEventListener('addedmap', function(eventData){
+            console.error('addedmap!!', eventData);
+            that.refresh();
+        })
+        .addEventListener('modifiedoption', function(eventData){
+            console.error('modifiedoption!!', eventData);
+            that.refresh();
+        })
+        .addEventListener('modifiedmap', function(eventData){
+            console.error('modifiedmap!!', eventData);
+            that.refresh();
+        })
+        .addEventListener('removedmap', function(eventData){
+            console.error('removedmap!!', eventData);
+            that.refresh();
+        })
 };
 
 /***************************************************************************
@@ -36,6 +72,13 @@ try {
 } catch (e) {}
 
 
+KeyMan.View.prototype.getCurrentKeyMapCluster = function(){
+    return this.currentKeyMapCluster;
+};
+KeyMan.View.prototype.setCurrentKeyMapCluster = function(keyMapCluster){
+    this.currentKeyMapCluster = keyMapCluster;
+    return this;
+};
 
 KeyMan.View.prototype.getCurrentKeyMap = function(){
     return this.currentKeyMap;
@@ -71,16 +114,16 @@ KeyMan.View.generateButtonViewForKey = function(key, parent){
  * KeyStep
  *
  *************************/
-KeyMan.View.generateButtonViewForKeyStep = function(keyStep, parent){
+KeyMan.View.generateButtonViewForKeyStep = function(keyStep){
     var keySeparator;
-    var keyStepEl = newEl('span').addClass('key-step');
+    var keyStepEl = newEl('span').addClass('key-step')
+        .if(keyStep.status == KeyMan.KeyStep.STATUS_CHECKING, function(it){ it.addClass('checking'); })
+        .if(keyStep.status == KeyMan.KeyStep.STATUS_RUN, function(it){ it.addClass('run'); });
     getData(keyStep.keys).each(function(key){
         if (keySeparator)
-            newEl('span').html(' + ').addClass('key-step-conjuction').appendTo(keyStepEl);
+            newEl('span').html(' + ').addClass('key-step-conjunction').appendTo(keyStepEl);
         keySeparator = KeyMan.View.generateButtonViewForKey(key).appendTo(keyStepEl);
     });
-    if (parent)
-        keyStepEl.appendTo(parent);
     return keyStepEl;
 };
 
@@ -89,14 +132,19 @@ KeyMan.View.generateButtonViewForKeyStep = function(keyStep, parent){
  * KeyStepList
  *
  *************************/
-KeyMan.View.generateCommandViewForKeyStepList = function(keyStepList){
+KeyMan.View.generateKeyViewForKeyStepList = function(keyStepList, type){
     var keyStepSeparator;
     var keyStepListEl = newEl('span').addClass('key-step-list');
     getData(keyStepList).each(function(keyStep){
         if (keyStepSeparator)
-            newEl('span').html(' > ').addClass('key-step-conjuction').appendTo(keyStepListEl);
+            newEl('span').html(' > ').addClass('key-step-conjunction').appendTo(keyStepListEl);
         keyStepSeparator = KeyMan.View.generateButtonViewForKeyStep(keyStep).appendTo(keyStepListEl);
     });
+    switch (type){
+        case KeyMan.TYPE_TYPING: keyStepListEl.addClass('typing'); break;
+        case KeyMan.TYPE_COMMAND: keyStepListEl.addClass('command'); break;
+        case KeyMan.TYPE_SHORTCUT: default: keyStepListEl.addClass('shotcut'); break;
+    }
     return keyStepListEl;
 };
 
@@ -121,6 +169,7 @@ KeyMan.View.generateRadioSwitch = function(radioName, itemList, indexForChecked,
 };
 
 KeyMan.View.generateCheckLockSwitch = function(text, check){
+    console.error('[CHECK] created ...', text, check);
     return newEl('div').addClass(['toggle-w', 'inline-block']).add([
         newEl('label').addClass('lock').add([
             newEl('input').attr('type', 'checkbox').if(check, function(it){ it.prop('checked', true) }),
@@ -130,24 +179,171 @@ KeyMan.View.generateCheckLockSwitch = function(text, check){
 };
 
 
+
+
+
+KeyMan.View.prototype.generateKeyInputView = function(keyman){
+    var that = this;
+    var keyInputContextEl = newEl('div').addClass('keyman-view-input-context');
+    var shortcutViewEl = newEl('div').addClass('key-view-shortcut');
+    var commandViewEl = newEl('div').addClass('key-view-command');
+    var typingViewEl = newEl('div').addClass('key-view-typing');;
+    keyInputContextEl.add(typingViewEl).add(commandViewEl).add(shortcutViewEl);
+    if (keyman.typingKeyHandler){
+        KeyMan.View.makeTypingInputView(keyman, typingViewEl);
+    }
+    if (keyman.commandKeyHandler){
+        KeyMan.View.makeCommandInputView(keyman, commandViewEl);
+    }else if (keyman.shortcutKeyHandler){
+        KeyMan.View.makeShortcutInputView(keyman, shortcutViewEl);
+    }
+    //Typing
+    keyman.addEventListenerById('_input_adder_for_typingkeyhandler', 'addedtypingkeyhandler', function(e){
+        KeyMan.View.makeTypingInputView(keyman, typingViewEl, function(el){
+            that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
+        });
+    });
+    keyman.addEventListenerById('_input_remover_for_typingkeyhandler', 'removedtypingkeyhandler', function(e){
+        keyman.checkAndDestroyTypingKeyHandler();
+        keyman.removeEventListenerById('_input-typingkeydown', 'typingkeydown');
+    });
+    //Command
+    keyman.addEventListenerById('_input_adder_for_commandkeyhandler', 'addedcommandkeyhandler', function(e){
+        KeyMan.View.makeCommandInputView(keyman, commandViewEl, function(el){
+            that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
+        });
+    });
+    keyman.addEventListenerById('_input_remover_for_commandkeyhandler', 'removedcommandkeyhandler', function(e){
+        keyman.checkAndDestroyCommandKeyHandler();
+        keyman.removeEventListenerById('_input-commandkeydown', 'commandkeydown');
+    });
+    //Shortcut
+    keyman.addEventListenerById('_input_adder_for_shortcutkeyhandler', 'addedshortcutkeyhandler', function(e){
+        KeyMan.View.makeShortcutInputView(keyman, shortcutViewEl, function(el){
+            that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
+        });
+    });
+    keyman.addEventListenerById('_input_remover_for_shortcutkeyhandler', 'removedshortcutkeyhandler', function(e){
+        keyman.checkAndDestroyShortcutKeyHandler();
+        keyman.removeEventListenerById('_input-shortcutkeydown','shortcutkeydown');
+    });
+    // that.toggleUserKeyInputSystem(it, keyViewerEl);
+    // KeyMan.View.generateKeyViewForKeyStepList( KeyMan.parseToKeyStepList(functionKey.keys), functionKey.type );
+    return keyInputContextEl;
+};
+KeyMan.View.prototype.destroyKeyInputView = function(keyman){
+    keyman.checkAndDestroyTypingKeyHandler();
+    keyman.checkAndDestroyCommandKeyHandler();
+    keyman.checkAndDestroyShortcutKeyHandler();
+    keyman.removeEventListenerById('_input_adder_for_typingkeyhandler');
+    keyman.removeEventListenerById('_input_adder_for_commandkeyhandler');
+    keyman.removeEventListenerById('_input_adder_for_shortcutkeyhandler');
+    keyman.removeEventListenerById('_input_remover_for_typingkeyhandler');
+    keyman.removeEventListenerById('_input_remover_for_commandkeyhandler');
+    keyman.removeEventListenerById('_input_remover_for_shortcutkeyhandler');
+};
+
+
+KeyMan.View.makeTypingInputView = function(keyman, viewEl, callback){
+    keyman.makeTypingKeyHandlerForce();
+    keyman.addEventListenerById('_input-typingkeydown', 'typingkeydown', function(eventData){
+        if (!eventData.keyStepList)
+            return;
+        //Current User Key
+        var currentUserKeyListView = KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_TYPING);
+        getEl(viewEl).html('').add( currentUserKeyListView );
+        //Predicted Key
+        var predictStartIndex = eventData.matchingProcessKeyStepIndex;
+        var predictData = getData(eventData.indexedFunctionKeyBufferMap).getFirst();
+        if (predictData && predictData.keyStepList){
+            var predicatedKeyListView = KeyMan.View.generateKeyViewForKeyStepList( getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData(), KeyMan.TYPE_TYPING).addClass('predicted');
+            currentUserKeyListView.add([newEl('span').add(' > ').addClass('key-step-conjunction'), predicatedKeyListView]);
+        }
+        (callback && callback(viewEl));
+    });
+};
+KeyMan.View.makeCommandInputView = function(keyman, viewEl, callback){
+    keyman.makeCommandKeyHandlerForce();
+    keyman.addEventListenerById('_input-commandkeydown', 'commandkeydown', function(eventData){
+        if (!eventData.keyStepList)
+            return;
+        //Current User Key
+        var currentUserKeyListView = KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_COMMAND);
+        getEl(viewEl).html('').add( currentUserKeyListView );
+        //Predicted Key
+        var predictStartIndex = eventData.matchingProcessKeyStepIndex;
+        var predictData = getData(eventData.indexedFunctionKeyBufferMap).getFirst();
+        if (predictData && predictData.keyStepList){
+            var predicatedKeyListView = KeyMan.View.generateKeyViewForKeyStepList( getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData(), KeyMan.TYPE_COMMAND).addClass('predicted')
+            currentUserKeyListView.add([newEl('span').add(' > ').addClass('key-step-conjunction'), predicatedKeyListView]);
+        }
+        (callback && callback(viewEl));
+    });
+};
+KeyMan.View.makeShortcutInputView = function(keyman, viewEl, callback){
+    keyman.makeShortcutKeyHandlerForce();
+    keyman.addEventListenerById('_input-shortcutkeydown', 'shortcutkeydown', function(eventData){
+        if (!eventData.keyStepList)
+            return;
+        getEl(viewEl).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_SHORTCUT) );
+        (callback && callback(viewEl));
+    });
+};
+
+KeyMan.View.generateAnimation = function(keyInputContextEl){
+
+};
+
+
+
+
+
+KeyMan.View.prototype.generateKeyManViewContext = function(keyCluster){
+    var that = this;
+    if (!that.currentKeyCluster)
+        that.setCurrentKeyMapCluster( keyCluster );
+    if (!that.currentKeyMap)
+        that.setCurrentKeyMap( keyCluster.getFirst() );
+    if (!that.targetKeyMapContextElement)
+        that.targetKeyMapContextElement = newEl('div').addClass('keyman-view-context');
+    return that.targetKeyMapContextElement.add([
+        that.generateToolViewForKeyMap( that.getCurrentKeyMapCluster() ),
+        that.generateTableViewForKeyMap( that.getCurrentKeyMapCluster(), that.getCurrentKeyMap() )
+    ]);
+};
+
+
+
 /*************************
  *
  * TOOL - BUTTONS
  *
  *************************/
-KeyMan.View.prototype.generateToolViewForKeyMap = function(keyCluster, targetKeyMapViewElement){
+KeyMan.View.prototype.generateToolViewForKeyMap = function(keyMapCluster){
     var that = this;
     var keyman = this.keyman;
-    console.error('hihihihihihi', that.currentKeyMap);
-    if (!that.currentKeyMap)
-        that.currentKeyMap = keyCluster.getFirst();
-    var currentKeyMapId = (that.currentKeyMap) ? that.currentKeyMap.id : null;
-    var currentKeyMap = keyCluster.get(currentKeyMapId);
-    var toolPanelForKeyMap = newEl('div').addClass('keyman-view-tool');
-    var titleEl = newEl('span').addClass('title')
+    console.error(that.getCurrentKeyMap());
+    var currentKeyMapId = (that.getCurrentKeyMap()) ? that.getCurrentKeyMap().id : null;
+    var currentKeyMap = keyMapCluster.getKeyMap(currentKeyMapId);
+    if (!that.targetKeyMapToolPanelElement)
+        that.targetKeyMapToolPanelElement = newEl('div').addClass('keyman-view-tool');
+    var titleEl = newEl('span').addClass('title');
     var selectEl = newEl('select');
-    toolPanelForKeyMap.add([
-        titleEl.html('KEYMAP'),
+    var buttonElToModifyKeyMap = newEl('button').html('🔧').addClass(['']);
+    var buttonElToNewKeyMap = newEl('button').html('📄').addClass(['']);
+    var selectorElOnMultiMapMode = newEl('button').html('✔').addClass(['setup']).addEventListener('click', function(e){
+        console.error('!!!', that.checkCurrentKeyMapIsSelected());
+        if (!that.checkCurrentKeyMapIsSelected()){
+            keyMapCluster.selectKeyMapOnMultiMapMode(that.getCurrentKeyMap().id);
+            selectorElOnMultiMapMode.addClass('selected');
+            that.refreshView();
+        }
+    });
+
+
+    return that.targetKeyMapToolPanelElement.add([
+        titleEl.html('⌨'),
+        ifEl(keyMapCluster.modeMultiMap, selectorElOnMultiMapMode),
         selectEl
             .addEventListener('change', function(e){
                 console.error(selectEl.value(), e);
@@ -155,47 +351,73 @@ KeyMan.View.prototype.generateToolViewForKeyMap = function(keyCluster, targetKey
                 if (!selectEl.value()){
                     data = {};
                 }else{
-                    that.setCurrentKeyMap( keyCluster.get(selectEl.value()) );
+                    that.setCurrentKeyMap( keyMapCluster.getKeyMap(selectEl.value()) );
                 }
-                getEl(targetKeyMapViewElement).html('').add([
-                    that.generateTableViewForKeyMap( that.getCurrentKeyMap() ),
-                    that.generateButtonViewForKeyAdditionButton()
-                ]);
+                that.refreshView();
+                //- Selector for MultiMap
+                if (that.checkCurrentKeyMapIsSelected()){
+                    selectorElOnMultiMapMode.addClass('selected');
+                }else{
+                    selectorElOnMultiMapMode.removeClass('selected');
+                }
             })
             .add([
-                forEl(keyCluster.getFunctionKeyMaps(), function(k, v){
+                forEl(keyMapCluster.getFunctionKeyMaps(), function(k, v){
                     return newEl('option').html(v.title).setValue(v.id);
                 })
             ])
             .setValue(currentKeyMapId)
             .trigger('change'),
-        newEl('button').html('🔧').addClass(['']).addEventListener('click', function(e){
-            if (!that.currentKeyMap)
+        buttonElToModifyKeyMap.addEventListener('click', function(e){
+            if (!that.getCurrentKeyMap())
                 return;
-            that.generatePopViewForKeyMapProperties(keyCluster, that.currentKeyMap).appendTo(document.body);
+            that.generatePopViewForKeyMapProperties(keyMapCluster, that.getCurrentKeyMap()).appendTo(document.body);
         }),
-        newEl('button').html('📄').addClass(['']).addEventListener('click', function(e){
-            that.generatePopViewForKeyMapProperties(keyCluster).appendTo(document.body);
+        buttonElToNewKeyMap.addEventListener('click', function(e){
+            that.generatePopViewForKeyMapProperties(keyMapCluster).appendTo(document.body);
         }),
-        ifEl(keyCluster.modeMultiMap,
-            newEl('button').html('✔').addClass(['setup']).addEventListener('click', function(e){
-                that.generatePopViewForKeyMapProperties(keyCluster).appendTo(document.body);
-            })
-        ),
         newEl('span').addClass('gap'),
 
         ifEl((currentKeyMap && currentKeyMap.modeEditable),
             newEl('button').html('⚙️').addClass(['setup', 'float-right']).addEventListener('click', function(e){
-                that.generatePopViewForKeyManSetup(keyCluster).appendTo(document.body);
+                that.generatePopViewForKeyManSetup(keyMapCluster).appendTo(document.body);
             })
         ),
-        ifEl(!keyCluster.modeAutoSave,
+        ifEl(!keyMapCluster.modeAutoSave,
             newEl('button').html('💾').addClass(['setup', 'float-right']).addEventListener('click', function(e){
-                that.generatePopViewForKeyMapProperties(keyCluster).appendTo(document.body);
+                that.generatePopViewForKeyMapProperties(keyMapCluster).appendTo(document.body);
             })
         ),
     ]);
-    return toolPanelForKeyMap;
+};
+
+KeyMan.View.prototype.checkCurrentKeyMapIsSelected = function(){
+    return (this.getCurrentKeyMap().id == this.getCurrentKeyMapCluster().keyMapSelectedWhenMultiMapMode);
+};
+
+KeyMan.View.prototype.refresh = function(){
+    var that = this;
+    return this.refreshTool().refreshView();
+};
+
+KeyMan.View.prototype.refreshTool = function(){
+    var that = this;
+    console.error('[VIEW - REFRESH] Tool ', that.targetKeyMapToolPanelElement);
+    if (!that.targetKeyMapToolPanelElement)
+        return this;
+    getEl( that.targetKeyMapToolPanelElement ).html('');
+    that.generateToolViewForKeyMap( that.getCurrentKeyMapCluster() );
+    return this;
+};
+
+KeyMan.View.prototype.refreshView = function(){
+    var that = this;
+    console.error('[VIEW - REFRESH] View ', that.targetKeyMapViewPanelElement);
+    if (!that.targetKeyMapViewPanelElement)
+        return this;
+    getEl( that.targetKeyMapViewPanelElement ).html('');
+    that.generateTableViewForKeyMap( that.getCurrentKeyMapCluster(), that.getCurrentKeyMap() );
+    return this;
 };
 
 /*************************
@@ -219,27 +441,43 @@ KeyMan.View.prototype.generateButtonViewForKeyAdditionButton = function(){
  * KEYMAP TABLE LIST
  *
  *************************/
-KeyMan.View.prototype.generateTableViewForKeyMap = function(targetKeyMap){
+KeyMan.View.prototype.generateTableViewForKeyMap = function(targetKeyMapCluster, targetKeyMap){
     var that = this;
     var keyman = this.keyman;
-    return KeyMan.View.generateTableViewForKeyMap(targetKeyMap, keyman.getRunnerPool(),
-        function(event, keyMap, fKey){
-            that.generatePopViewForKeyProperties(keyMap, fKey.id).appendTo(document.body);
-        },
-        function(event, keyMap, fKey){
-            that.generatePopViewForKeyPattern(keyMap, fKey.id).appendTo(document.body);
-        }
-    );
+    if (!that.targetKeyMapViewPanelElement)
+        that.targetKeyMapViewPanelElement = newEl('div').addClass('keyman-view-view');
+    if (targetKeyMapCluster.modeMultiMap){
+        that.targetKeyMapViewPanelElement.if(this.checkCurrentKeyMapIsSelected(),
+            function(it){ it.removeClass('unselected').addClass('selected'); },
+            function(it){ it.removeClass('selected').addClass('unselected'); }
+        )
+    }
+    return that.targetKeyMapViewPanelElement
+        .add([
+            KeyMan.View.generateTableViewForKeyMap(targetKeyMap, keyman.getRunnerPool(),
+                function(event, keyMap, fKey){
+                    that.generatePopViewForKeyProperties(keyMap, fKey.id).appendTo(document.body);
+                },
+                function(event, keyMap, fKey){
+                    that.generatePopViewForKeyPattern(keyMap, fKey.id).appendTo(document.body);
+                }
+            ),
+            that.generateButtonViewForKeyAdditionButton()
+        ]);
 };
+
 KeyMan.View.generateTableViewForKeyMapTitle = function(targetKeyMap){
     return newEl('div').html(targetKeyMap.title).addClass(['left', 'key-map-title'])
         .if(targetKeyMap.statusDuplicated, function(it){ it.addClass('dup'); })
         .if(targetKeyMap.statusNew, function(it){ it.addClass('new'); })
 };
 KeyMan.View.generateTableViewForKeyMap = function(targetKeyMap, runnerPool, funcToSetupProperties, funcToSetupKeyPattern){
+    if (!targetKeyMap)
+        throw 'Does not exists KeyMap: ';
     var keyMapTableEl = newEl('ul').addClass('key-map')
         .if(targetKeyMap.statusDuplicated, function(it){ it.addClass('dup'); })
         .if(targetKeyMap.statusNew, function(it){ it.addClass('new'); })
+        .if(targetKeyMap.statusSelectedOnMultiMap, function(it){ it.addClass('selected'); })
         .add([
             forEl(targetKeyMap.functionKeyMap, function(key, functionKey){
                 var runner = runnerPool.get(functionKey.runner);
@@ -285,11 +523,13 @@ KeyMan.View.generateTableViewForFunctionKey = function(functionKey, targetKeyMap
                         (funcToSetupKeyPattern && funcToSetupKeyPattern(e, targetKeyMap, functionKey));
                     })
                     .add(
-                        KeyMan.View.generateCommandViewForKeyStepList( KeyMan.parseToKeyStepList(functionKey.keys) ).if(!functionKey.statusSameKeyStepList, function(it){ it.addClass('update'); })
+                        KeyMan.View.generateKeyViewForKeyStepList( KeyMan.parseToKeyStepList(functionKey.keys), functionKey.type ).if(!functionKey.statusSameKeyStepList, function(it){ it.addClass('update'); })
                     )
             ])
         ]);
 };
+
+
 
 /*************************
  *
@@ -413,14 +653,15 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
     var popViewTitleEl = newEl('div').addClass('keyman-view-pop-title');
     var keyViewerEl = newEl('div').addClass(['keyman-view-pop-key-box', 'light-keys']);
     var typeableViewerEl = newEl('span');
-    var toggleForKeyHandleMode = KeyMan.View.generateRadioSwitch('handler', ['SHORTCUT', 'COMMAND'], 0,function(it){
+    var toggleForKeyHandleMode = KeyMan.View.generateRadioSwitch('handler', ['SHORTCUT', 'COMMAND', 'TYPING'], 0,function(it){
         that.toggleUserKeyInputSystem(it, keyViewerEl);
+        targetFunctionKey.type = KeyMan.getHandlerTypeByName(it);
     });
     that.toggleUserKeyInputSystem( KeyMan.getNameByHandlerType(targetFunctionKey.type), keyViewerEl );
     if (targetFunctionKey){
         toggleForKeyHandleMode.findChildEl(function(it){ return it.attr('type') == 'radio' && it.value() == KeyMan.getNameByHandlerType(targetFunctionKey.type); }).prop('checked', true);
         that.latestUserInputKeyStepList = targetFunctionKey.keyStepList;
-        KeyMan.View.generateCommandViewForKeyStepList(targetFunctionKey.keyStepList).appendTo( keyViewerEl.html('') );
+        KeyMan.View.generateKeyViewForKeyStepList(targetFunctionKey.keyStepList, targetFunctionKey.type).appendTo( keyViewerEl.html('') );
     }
     popViewEl
         .add([
@@ -435,9 +676,9 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
             newEl('button').html('O').addEventListener('click', function(e){
                 var keys = getData(that.latestUserInputKeyStepList).collect(function(it){ return it.keys });
                 if (modeNew){
-                    targetKeyMap.add({title:'No Title', keys: keys});
+                    targetKeyMap.add({title:'No Title', type:targetFunctionKey.type, keys: keys});
                 }else{
-                    targetKeyMap.get(targetFunctionKey).modify({keys: keys});
+                    targetKeyMap.get(targetFunctionKey).modify({type:targetFunctionKey.type, keys: keys});
                 }
                 darkSpreadEl.trigger('click');
             }),
@@ -455,10 +696,12 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
             popViewEl
         ])
         .addEventListener('click', function(event){
+            keyman.removeEventListenerById('_test-typingkeydown','typingkeydown');
             keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
             keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
             keyman.removeEventListenerById('_test-untypeable', 'untypeable');
             keyman.removeEventListenerById('_test-typeable', 'typeable');
+            keyman.checkAndDestroyTypingKeyHandler();
             keyman.checkAndDestroyShortcutKeyHandler();
             keyman.checkAndDestroyCommandKeyHandler();
             darkSpreadEl.removeFromParent();
@@ -474,46 +717,57 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
 KeyMan.View.prototype.toggleUserKeyInputSystem = function(toggleValue, showingContextElement){
     var that = this;
     switch (toggleValue){
-        case 'COMMAND':
-            this.setupCommandViewAndEvent(showingContextElement);
-            break;
-        case 'SHORTCUT':
-        default:
-            this.setupShortcutViewAndEvent(showingContextElement);
-            break;
+        case 'TYPING': this.setupTypingViewAndEvent(showingContextElement); break;
+        case 'COMMAND': this.setupCommandViewAndEvent(showingContextElement); break;
+        case 'SHORTCUT': default: this.setupShortcutViewAndEvent(showingContextElement); break;
     }
 };
 KeyMan.View.prototype.setupShortcutViewAndEvent = function(showingContextElement){
     var that = this;
     var keyman = this.keyman;
     keyman.checkAndDestroyCommandKeyHandler();
+    keyman.checkAndDestroyTypingKeyHandler();
     keyman.makeShortcutKeyHandlerForce();
     keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
     keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
+    keyman.removeEventListenerById('_test-typingkeydown', 'typingkeydown');
     keyman.addEventListenerById('_test-shortcutkeydown', 'shortcutkeydown', function(eventData){
         if (!eventData.keyStepList)
             return;
-        //Shortcut
         that.latestUserInputKeyStepList = eventData.keyStepList;
-        getEl(showingContextElement).html('');
-        // KeyMan.View.generateShortcutViewForKeyStepList(keyStepList).appendTo('div-show-command');
-        KeyMan.View.generateCommandViewForKeyStepList(eventData.keyStepList).appendTo(showingContextElement);
+        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_SHORTCUT) );
     });
 };
 KeyMan.View.prototype.setupCommandViewAndEvent = function(showingContextElement){
     var that = this;
     var keyman = this.keyman;
     keyman.checkAndDestroyShortcutKeyHandler();
+    keyman.checkAndDestroyTypingKeyHandler();
     keyman.makeCommandKeyHandlerForce();
     keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
     keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
+    keyman.removeEventListenerById('_test-typingkeydown', 'typingkeydown');
     keyman.addEventListenerById('_test-commandkeydown', 'commandkeydown', function(eventData){
         if (!eventData.keyStepList)
             return;
-        //Command
         that.latestUserInputKeyStepList = eventData.keyStepList;
-        getEl(showingContextElement).html('');
-        KeyMan.View.generateCommandViewForKeyStepList(eventData.keyStepList).appendTo(showingContextElement);
+        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_COMMAND) );
+    });
+};
+KeyMan.View.prototype.setupTypingViewAndEvent = function(showingContextElement){
+    var that = this;
+    var keyman = this.keyman;
+    keyman.checkAndDestroyShortcutKeyHandler();
+    keyman.checkAndDestroyCommandKeyHandler();
+    keyman.makeTypingKeyHandlerForce();
+    keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
+    keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
+    keyman.removeEventListenerById('_test-typingkeydown', 'typingkeydown');
+    keyman.addEventListenerById('_test-typingkeydown', 'typingkeydown', function(eventData){
+        if (!eventData.keyStepList)
+            return;
+        that.latestUserInputKeyStepList = eventData.keyStepList;
+        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_TYPING) );
     });
 };
 
@@ -522,15 +776,15 @@ KeyMan.View.prototype.setupCommandViewAndEvent = function(showingContextElement)
  * POP - KEYMAP PROPERTIES
  *
  *************************/
-KeyMan.View.prototype.generatePopViewForKeyMapProperties = function(targetKeyCluster, targetKeyMap){
+KeyMan.View.prototype.generatePopViewForKeyMapProperties = function(targetKeyMapCluster, targetKeyMap){
     var that = this;
     var keyman = this.keyman;
-    targetKeyMap = targetKeyCluster.get(targetKeyMap);
+    targetKeyMap = targetKeyMapCluster.getKeyMap(targetKeyMap);
     var modeNew = !(!!targetKeyMap);
     if (modeNew){
         targetKeyMap = new KeyMan.KeyMap({});
     }
-    console.error('[POP KEYMAP] ', targetKeyCluster, targetKeyMap);
+    console.error('[POP KEYMAP] ', targetKeyMapCluster, targetKeyMap);
     var darkSpreadEl = newEl('div').addClass('keyman-view-pop-darkness').setStyle('zIndex', getData().findHighestZIndex(['div']) + 1);
     var popViewEl = newEl('div').addClass('keyman-view-pop-content-box');
     var popViewTitleEl = newEl('div').addClass('keyman-view-pop-title');
@@ -558,10 +812,10 @@ KeyMan.View.prototype.generatePopViewForKeyMapProperties = function(targetKeyClu
 
             newEl('div').addClass(['inline-block', 'right']).style('width:99%;').add([
                 ifEl(!modeNew && targetKeyMap.modeRemovable,
-                    buttonForDelete.addClass('float-right').html('Delete').addEventListener('click', function(e){
+                    buttonForDelete.addClass('float-right').html('🗑️ Delete').addEventListener('click', function(e){
                         if (confirm('It will be removed')){
                             that.currentKeyMap = null;
-                            targetKeyMap.removeFromKeyCluster()
+                            targetKeyMap.removeFromKeyCluster();
                             darkSpreadEl.trigger('click');
                         }
                     })
@@ -571,7 +825,7 @@ KeyMan.View.prototype.generatePopViewForKeyMapProperties = function(targetKeyClu
             newEl('button').html('O').addEventListener('click', function(e){
                 that.currentKeyMap = targetKeyMap;
                 if (modeNew){
-                    targetKeyCluster.add(
+                    targetKeyMapCluster.addKeyMap(
                         targetKeyMap.init({
                             title:inputForTitle.value()
                         })
@@ -628,18 +882,23 @@ KeyMan.View.prototype.generatePopViewForKeyManSetup = function(keyCluster){
     var dataInput = newEl('input').attr('type', 'text');
     popViewEl
         .add([
-            popViewTitleEl.add('SETUP'),
+            popViewTitleEl.add([
+                'SETUP',
+                newEl('a').html('@sj-js/keyman').addClass('float-right').style('font-size:12px;').attr('href', 'https://sj-js.github.io/sj-js/keyman')
+            ]),
             setupViewerEl.add([
                 newEl('label').html('OPTION').addClass(['title']),
                 newEl('div').addClass('left').add([
                     toggleForAutoSave.addEventListener('change', function(e){
                         var checked = toggleForAutoSave.findChildEl(function(it){ return it.attr('type') == 'checkbox'; }).prop('checked');
-                        keyCluster.modeAutoSave = checked;
+                        keyCluster.setModeAutoSave(checked).save();
+                        that.refreshView();
                     }),
                     newEl('span').addClass('gap'),
                     toggleForMultiMap.addEventListener('change', function(e){
                         var checked = toggleForMultiMap.findChildEl(function(it){ return it.attr('type') == 'checkbox'; }).prop('checked');
-                        keyCluster.modeMultiMap = checked;
+                        keyCluster.setModeMultiMap(checked).saveAuto();
+                        that.refreshView();
                     }),
                 ]),
             ]),
@@ -649,11 +908,11 @@ KeyMan.View.prototype.generatePopViewForKeyManSetup = function(keyCluster){
             setupDataExportViewerEl.add([
                 newEl('label').html('EXPORT').addClass(['title']),
                 newEl('button').html('📤{}').addClass(['menu']).addEventListener('click', function(e){
-                    var encodedData = KeyMan.encodeData( keyman.getUser().extractData() );
+                    var encodedData = KeyMan.encodeData( keyCluster.extractData() );
                     dataInput.value(encodedData);
                 }),
                 newEl('button').html('📤🗎').addClass(['menu']).addEventListener('click', function(e){
-                    var encodedData = KeyMan.encodeData( keyman.getUser().extractData() );
+                    var encodedData = KeyMan.encodeData( keyCluster.extractData() );
                     KeyMan.View.exportAsFile('keyman_cluster.dat', encodedData);
                 }),
                 newEl('br'),
@@ -723,7 +982,7 @@ KeyMan.View.prototype.generatePopViewForKeyManSetup = function(keyCluster){
     return darkSpreadEl;
 };
 
-KeyMan.View.prototype.generateViewerForImport = function(importedObjectData, keyCluster, runnerPool){
+KeyMan.View.prototype.generateViewerForImport = function(importedObjectData, keyMapCluster, runnerPool){
     var that = this;
     var keyman = this.keyman;
     var dataViewerDiv = newEl('div').style('width:100%; height:300px; overflow:auto; text-align:left; border:2px solid #888888; border-radius:7px');
@@ -738,28 +997,28 @@ KeyMan.View.prototype.generateViewerForImport = function(importedObjectData, key
             case 'Sync': divForMapStrategy.attr('data-hidden', false); KeyMan.View.showOption([divForMapStrategy, divForKeyStrategy, divForOptionStrategy]); break;
             default: divForMapStrategy.attr('data-hidden', true); KeyMan.View.hidden([divForMapStrategy, divForKeyStrategy, divForOptionStrategy]); break;
         }
-        that.makePreviewBeforeImport(importedObjectData, keyCluster, runnerPool, dataViewerDiv, [new KeyMan.MergeOptionForImport(radioForCheckingImport), new KeyMan.MergeOptionForMap(divForMapStrategy), new KeyMan.MergeOptionForKey(divForKeyStrategy), new KeyMan.MergeOptionForOption(divForOptionStrategy)]);
+        that.makePreviewBeforeImport(importedObjectData, keyMapCluster, runnerPool, dataViewerDiv, KeyMan.View.makeOptionMap(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy));
     });
     var radioForCheckingMapTitle = KeyMan.View.generateRadioSwitch('sss2', ['Overwrite', 'New', 'Ignore', 'Sync'], 0,function(it){
         switch (it){
             case 'Sync': divForKeyStrategy.attr('data-hidden', false); KeyMan.View.showOption([divForKeyStrategy, divForOptionStrategy]); break;
             default: divForKeyStrategy.attr('data-hidden', true); KeyMan.View.hidden([divForKeyStrategy, divForOptionStrategy]); break;
         }
-        that.makePreviewBeforeImport(importedObjectData, keyCluster, runnerPool, dataViewerDiv, [new KeyMan.MergeOptionForImport(radioForCheckingImport), new KeyMan.MergeOptionForMap(divForMapStrategy), new KeyMan.MergeOptionForKey(divForKeyStrategy), new KeyMan.MergeOptionForOption(divForOptionStrategy)]);
+        that.makePreviewBeforeImport(importedObjectData, keyMapCluster, runnerPool, dataViewerDiv, KeyMan.View.makeOptionMap(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy));
     });
     var radioForCheckingKeyTitle = KeyMan.View.generateRadioSwitch('sss3', ['Overwrite', 'New', 'Ignore', 'Sync'], 0,function(it){
         switch (it){
             case 'Sync': divForOptionStrategy.attr('data-hidden', false); KeyMan.View.showOption([divForOptionStrategy]); break;
             default: divForOptionStrategy.attr('data-hidden', true); KeyMan.View.hidden([divForOptionStrategy]); break;
         }
-        that.makePreviewBeforeImport(importedObjectData, keyCluster, runnerPool, dataViewerDiv, [new KeyMan.MergeOptionForImport(radioForCheckingImport), new KeyMan.MergeOptionForMap(divForMapStrategy), new KeyMan.MergeOptionForKey(divForKeyStrategy), new KeyMan.MergeOptionForOption(divForOptionStrategy)]);
+        that.makePreviewBeforeImport(importedObjectData, keyMapCluster, runnerPool, dataViewerDiv, KeyMan.View.makeOptionMap(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy));
     });
     var radioForCheckingOption = KeyMan.View.generateRadioSwitch('sss4', ['Overwrite', 'Ignore'], 0,function(it){
-        that.makePreviewBeforeImport(importedObjectData, keyCluster, runnerPool, dataViewerDiv, [new KeyMan.MergeOptionForImport(radioForCheckingImport), new KeyMan.MergeOptionForMap(divForMapStrategy), new KeyMan.MergeOptionForKey(divForKeyStrategy), new KeyMan.MergeOptionForOption(divForOptionStrategy)]);
+        that.makePreviewBeforeImport(importedObjectData, keyMapCluster, runnerPool, dataViewerDiv, KeyMan.View.makeOptionMap(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy));
     });
 
     KeyMan.View.hidden([divForMapStrategy, divForKeyStrategy, divForOptionStrategy]);
-    that.makePreviewBeforeImport(importedObjectData, keyCluster, runnerPool, dataViewerDiv, [new KeyMan.MergeOptionForImport(radioForCheckingImport), new KeyMan.MergeOptionForMap(divForMapStrategy), new KeyMan.MergeOptionForKey(divForKeyStrategy), new KeyMan.MergeOptionForOption(divForOptionStrategy)]);
+    that.makePreviewBeforeImport(importedObjectData, keyMapCluster, runnerPool, dataViewerDiv, KeyMan.View.makeOptionMap(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy));
 
     return getEl([
         dataViewerDiv,
@@ -770,108 +1029,112 @@ KeyMan.View.prototype.generateViewerForImport = function(importedObjectData, key
             divForOptionStrategy.addClass('left').add('Option strategy').add(radioForCheckingOption),
             newEl('br'),
             newEl('button').html('Import').addClass('menu').addEventListener('click', function(e){
-                //분석 => 옵션
-                [radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy]
+                //- OptionMap for merge
+                var optionMapForMerge = KeyMan.View.makeOptionMap(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy);
+                //- KeyMan for merge
+                var keyManForMerge = KeyMan.View.makeKeyManForMerge(importedObjectData, optionMapForMerge, keyMapCluster);
                 //Load
-                keyman.loadData(importedObjectData);
+                keyMapCluster.mergeData(keyManForMerge.getUser(), optionMapForMerge);
+                // keyman.loadData(importedObjectData);
             })
         ])
     ]);
 };
 
-KeyMan.View.prototype.makePreviewBeforeImport = function(importedObjectData, keyCluster, runnerPool, dataViewerDiv, mergeOptionList){
+KeyMan.View.makeOptionMap = function(radioForCheckingImport, divForMapStrategy, divForKeyStrategy, divForOptionStrategy){
+    var mergeOptionList = [
+        new KeyMan.MergeOptionForImport(radioForCheckingImport),
+        new KeyMan.MergeOptionForMap(divForMapStrategy),
+        new KeyMan.MergeOptionForKey(divForKeyStrategy),
+        new KeyMan.MergeOptionForOption(divForOptionStrategy)
+    ];
+    return getData(mergeOptionList).collectMap(function(it){ return {key:it.name, value:it.code}; });
+};
+
+KeyMan.View.prototype.makePreviewBeforeImport = function(importedObjectData, keyMapCluster, runnerPool, dataViewerDiv, optionMapForMerge){
     dataViewerDiv.html('');
-    //- Options
-    var optionMap = getData(mergeOptionList).collectMap(function(it){ return {key:it.name, value:it.code}; });
-    // for (var i=0, mergeOption; i<mergeOptionList.length; i++){
-    //     mergeOption = mergeOptionList[i];
-    //     optionMap[mergeOption.name] = mergeOption.code;
-    // }
     //- Clone Data
-    var clonedImportedObjectData = getData(importedObjectData).returnCloneData();
-    console.error(optionMap);
-    console.error(importedObjectData);
-    console.error(clonedImportedObjectData);
-
-    //- Make data
-    /** Import Cluster **/
-    // if (optionMap['import'] == KeyMan.MergeOption.TYPE_SYNC){
-        /** Import KeyMap **/
-        for (var keyMapId in clonedImportedObjectData){
-            var importedKeyMap = clonedImportedObjectData[keyMapId];
-            var compareKeyMap = keyCluster.getByTitle(importedKeyMap.title);
-            importedKeyMap.statusDuplicated = !!compareKeyMap;
-            console.error('Map? ', importedKeyMap, compareKeyMap);
-
-            if (optionMap['map'] == KeyMan.MergeOption.TYPE_NEW){
-                if (importedKeyMap.statusDuplicated){
-                    importedKeyMap.tempCopy = KeyMan.KeyMap.copy(importedKeyMap, clonedImportedObjectData);
-                    importedKeyMap.tempCopy.statusDuplicated = false;
-                    importedKeyMap.tempCopy.statusNew = true;
-                }
-
-            }else{
-                /** Import Key **/
-                for (var fKeyId in importedKeyMap.functionKeyMap){
-                    var importedFunctionKey = importedKeyMap.functionKeyMap[fKeyId];
-                    var compareFunctionKey = compareKeyMap.getByTitle(importedFunctionKey.title);
-                    importedFunctionKey.statusDuplicated = !!compareFunctionKey;
-                    console.error('KEY? ', importedFunctionKey, compareFunctionKey);
-
-                    if (optionMap['key'] == KeyMan.MergeOption.TYPE_NEW){
-                        if (importedFunctionKey.statusDuplicated){
-                            importedFunctionKey.tempCopy = KeyMan.FunctionKey.copy(importedFunctionKey, importedKeyMap.functionKeyMap);
-                            importedFunctionKey.tempCopy.statusDuplicated = false;
-                            importedFunctionKey.tempCopy.statusNew = true;
-                        }
-
-                    }else{
-                        /** Import Option **/
-                        if (importedFunctionKey.statusDuplicated){
-                            importedFunctionKey.statusSameRunner = importedFunctionKey.runner == compareFunctionKey.runner;
-                            importedFunctionKey.statusSameData = importedFunctionKey.data == compareFunctionKey.data;
-                            importedFunctionKey.statusSameKeyStepList = KeyMan.FunctionKey.equalsKeyStepList(
-                                KeyMan.parseToKeyStepList(importedFunctionKey.keys),
-                                compareFunctionKey.keyStepList
-                            );
-                        }
-                        if (optionMap['option'] == KeyMan.MergeOption.TYPE_OVERWRITE){
-
-                        }
-                        if (optionMap['option'] == KeyMan.MergeOption.TYPE_IGNORE){
-
-                        }
-                    }
-
-                }
-            }
-        }
-    // }
+    var keyManForMerge = KeyMan.View.makeKeyManForMerge(importedObjectData, optionMapForMerge, keyMapCluster);
 
     //- Make view
-    var importedKeyMap;
-    for (var id in clonedImportedObjectData){
-        importedKeyMap = clonedImportedObjectData[id];
+    keyManForMerge.getUser().traverse(function(toKeyMap){
         dataViewerDiv
             .removeClass(['merge-import-0', 'merge-import-1', 'merge-import-2', 'merge-import-3', 'merge-import-4'])
             .removeClass(['merge-map-0', 'merge-map-1', 'merge-map-2', 'merge-map-3', 'merge-map-4'])
             .removeClass(['merge-key-0', 'merge-key-1', 'merge-key-2', 'merge-key-3', 'merge-key-4'])
             .removeClass(['merge-option-0', 'merge-option-1', 'merge-option-2', 'merge-option-3', 'merge-option-4'])
             .addClass([
-                'merge-import-' + optionMap['import'],
-                'merge-map-' + optionMap['map'],
-                'merge-key-' + optionMap['key'],
-                'merge-option-' + optionMap['option']
+                'merge-import-' + optionMapForMerge['import'],
+                'merge-map-' + optionMapForMerge['map'],
+                'merge-key-' + optionMapForMerge['key'],
+                'merge-option-' + optionMapForMerge['option']
             ]);
         //- Make Preview-KeyMap
-        KeyMan.View.generateTableViewForKeyMapTitle(importedKeyMap).appendTo(dataViewerDiv);
-        if (importedKeyMap.tempCopy){
-            KeyMan.View.generateTableViewForKeyMapTitle(importedKeyMap.tempCopy).appendTo(dataViewerDiv);
-            KeyMan.View.generateTableViewForKeyMap(importedKeyMap.tempCopy, runnerPool).appendTo( dataViewerDiv );
+        KeyMan.View.generateTableViewForKeyMapTitle(toKeyMap).appendTo(dataViewerDiv);
+        if (toKeyMap.tempCopy){
+            KeyMan.View.generateTableViewForKeyMapTitle(toKeyMap.tempCopy).appendTo(dataViewerDiv);
+            KeyMan.View.generateTableViewForKeyMap(toKeyMap.tempCopy, runnerPool).appendTo( dataViewerDiv );
         }else{
-            KeyMan.View.generateTableViewForKeyMap(importedKeyMap, runnerPool).appendTo( dataViewerDiv );
+            KeyMan.View.generateTableViewForKeyMap(toKeyMap, runnerPool).appendTo( dataViewerDiv );
         }
-    }
+    });
+};
+
+KeyMan.View.makeKeyManForMerge = function(importedObjectData, optionMapForMerge, keyMapCluster){
+    var clonedImportedObjectData = getData(importedObjectData).returnCloneData();
+    console.error(optionMapForMerge);
+    console.error(importedObjectData);
+    console.error(clonedImportedObjectData);
+
+    var testKeyMan = new KeyMan();
+    testKeyMan.getUser().loadData(clonedImportedObjectData).traverse(function(toKeyMap){
+        var compareKeyMap = keyMapCluster.getKeyMapByTitle(toKeyMap.title);
+        toKeyMap.statusDuplicated = !!compareKeyMap;
+        console.error('Map? ', toKeyMap, compareKeyMap);
+        if (optionMapForMerge['map'] == KeyMan.MergeOption.TYPE_NEW){
+            if (toKeyMap.statusDuplicated){
+                // toKeyMap.tempCopy = KeyMan.KeyMap.copy(toKeyMap, clonedImportedObjectData);
+                toKeyMap.tempCopy = toKeyMap.copy();
+                toKeyMap.tempCopy.statusDuplicated = false;
+                toKeyMap.tempCopy.statusNew = true;
+            }
+
+        }else{
+            toKeyMap.traverse(function(toKeyObject){
+                var compareFunctionKey = (compareKeyMap) ? compareKeyMap.getByTitle(toKeyObject.title) : null;
+                toKeyObject.statusDuplicated = !!compareFunctionKey;
+                console.error('KEY? ', toKeyObject, compareFunctionKey);
+
+                if (optionMapForMerge['key'] == KeyMan.MergeOption.TYPE_NEW){
+                    if (toKeyObject.statusDuplicated){
+                        // toKeyObject.tempCopy = KeyMan.FunctionKey.copy(toKeyObject, toKeyMap.functionKeyMap);
+                        toKeyObject.tempCopy = toKeyObject.copy();
+                        toKeyObject.tempCopy.statusDuplicated = false;
+                        toKeyObject.tempCopy.statusNew = true;
+                    }
+
+                }else{
+                    /** Import Option **/
+                    if (toKeyObject.statusDuplicated){
+                        toKeyObject.statusSameRunner = toKeyObject.runner == compareFunctionKey.runner;
+                        toKeyObject.statusSameData = toKeyObject.data == compareFunctionKey.data;
+                        toKeyObject.statusSameKeyStepList = KeyMan.FunctionKey.equalsKeyStepList(
+                            KeyMan.parseToKeyStepList(toKeyObject.keys),
+                            compareFunctionKey.keyStepList
+                        );
+                    }
+                    if (optionMapForMerge['option'] == KeyMan.MergeOption.TYPE_OVERWRITE){
+
+                    }
+                    if (optionMapForMerge['option'] == KeyMan.MergeOption.TYPE_IGNORE){
+
+                    }
+                }
+            });
+        }
+    });
+    console.error('__', testKeyMan);
+    return testKeyMan;
 };
 
 
@@ -943,5 +1206,5 @@ KeyMan.View.exportAsFile = function (filename, contents){
             }, 0);
         }
     }
-}
+};
 

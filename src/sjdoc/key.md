@@ -25,7 +25,6 @@
         }             
     </script>
     <body>
-        <div style="padding:10px; border:2px dashed #97A1FF;">Click here and Test key</div>
         <button onclick="run();">Click with shift</button>
         <br/>
       

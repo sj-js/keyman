@@ -1,6 +1,7 @@
 # KeyMan
 ## ⌨
 [![Build Status](https://travis-ci.org/sj-js/keyman.svg?branch=master)](https://travis-ci.org/sj-js/keyman)
+[![Coverage Status](https://coveralls.io/repos/github/sj-js/keyman/badge.svg)](https://coveralls.io/github/sj-js/keyman)
 [![All Download](https://img.shields.io/github/downloads/sj-js/keyman/total.svg)](https://github.com/sj-js/keyman/releases)
 [![Release](https://img.shields.io/github/release/sj-js/keyman.svg)](https://github.com/sj-js/keyman/releases)
 [![License](https://img.shields.io/github/license/sj-js/keyman.svg)](https://github.com/sj-js/keyman/releases)
@@ -16,10 +17,13 @@
 *@* **order** *@*
 ```
 - KeyMan
-- Key
+- Add / Remove
 - Shortcut
 - Command
-- Input
+- KeyMan Expression
+- Runner
+- Storage/System/User
+- View
 - Event
 - Functions
 - Example

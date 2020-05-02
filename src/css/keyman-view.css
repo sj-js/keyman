@@ -41,11 +41,25 @@
     background:#b8e2c7;
 }
 
+.keyman-view-tool select > option:checked {
+    font-weight: bold;
+}
+
+/* TODO:js필요 */
+.keyman-view-tool select > option.selected {
+    font-weight: bold;
+    color: greenyellow;
+}
+
 .keyman-view-tool .title {
     font-size:25px;
     font-weight:bold;
     color: ivory;
 }
+.keyman-view-tool .selected {
+    color:greenyellow;
+}
+
 .keyman-view-tool .setup {
     width:35px;
     height:35px;
@@ -85,6 +99,15 @@ ul.key-map > li > table.key-item {
 ul.key-map > li > table.key-item:hover {
     border-color: #7ca783;
 }
+
+.keyman-view-view.unselected ul.key-map > li > table.key-item.lock {
+    background:#586356;
+}
+.keyman-view-view.unselected ul.key-map > li > table.key-item {
+    border-color: #3a3a3a;
+    background: #000000;
+}
+
 
 
 /**************************************************
@@ -155,6 +178,12 @@ table.key-item .key-item-runner-data {
 }
 .keyman-view-pop-content-box {
     display:inline-block; overflow:auto; width:100%; max-width:550px; max-height:87%; min-height:300px; background:#FFFFFF; border-radius:7px; text-align: center;
+}
+.keyman-view-pop-content-box a {
+    color:#06517d; text-decoration:none; font-weight:bold;
+}
+.keyman-view-pop-content-box a:hover {
+    color:#78b1b7; text-decoration:underline; text-underline:#2c2c2c;
 }
 .keyman-view-pop-content-box input {
     outline: none; width: 90%; height: 28px; border-radius: 7px; font-size: 21px; border: 2px solid #000000;
@@ -232,6 +261,22 @@ table.key-item .key-item-runner-data {
     display:inline-block; width:95%; min-height:55px; border:1px solid #DDDDDD; border-radius:7px; background:#EEEEEE; text-align:left;
 }
 
+.keyman-view-pop-key-box .key-step-list.shortcut {}
+.keyman-view-pop-key-box .key-step-list.command {}
+.keyman-view-pop-key-box .key-step-list.typing {}
+
+.key-step-list.typing .key-step {
+    padding:0px; border:none; background:none;
+}
+.key-step-list.typing .key-step-conjunction {
+    display:none;
+}
+
+
+.keyman-view-input-context {
+    border: 1px solid #e4e9f0; border-radius:12px; background:#fafafa;
+}
+
 
 /**************************************************
  * Pop view - KEY PATTERN - KEY
@@ -239,16 +284,28 @@ table.key-item .key-item-runner-data {
 .show-pannel {
     display: inline-block; min-width: 100px; min-height: 50px; background: #EEEEEE; border: 1px solid #BBBBBB; border-radius: 5px;
 }
+
 .key-step-list {
     display: inline-block; padding: 5px; border-radius: 7px;
 }
+.key-step-list.predicted {
+    opacity:0.3; padding:0px;
+}
+
 .key-step {
     display: inline-block; padding: 5px; border: 1px solid #2c2c2c; border-radius: 5px; background: #9ebcae;
 }
+.key-step.checking > kbd {
+    border: 0px solid #2c2c2c; border-radius: 5px; background: #dfd220;
+}
+.key-step.run > kbd {
+    border: 0px solid #2c2c2c; border-radius: 5px; background: #8dbc43;
+}
+
 .key-step .key{
     margin: 2px; font-weight: bold;
 }
-.key-step-conjuction {
+.key-step-conjunction {
     display: inline-block; margin-left:3px; margin-right:3px; text-align: center; min-height: 10px;
 }
 .button-combinable {
