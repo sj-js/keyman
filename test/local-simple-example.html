@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<HTML>
+    <head>
+        <meta charset="utf-8" />
+        <meta name=viewport content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+
+<!--        <link href="../../favicon_jmeetsz.ico" rel="shortcut icon" type="image/x-icon" />-->
+        <link href="../favicon_keyman.ico" rel="shortcut icon" type="image/x-icon" />
+
+        <script src="../../crossman/src/js/crossman.js"></script>
+        <script src="../../keyman/src/js/keyman.js"></script>
+        <script src="../../keyman/src/js/keyhandler/keyman-keyhandler-shortcut.js"></script>
+        <script>
+            var keyman = new KeyMan();
+            keyman.addKeyHandler(
+                new KeyMan.ShortcutKeyHandler()
+            );
+        </script>
+        <style>
+            * { margin:0; cursor:pointer; }
+            div:focus { background-color: Aqua; }
+        </style>
+    </head>
+
+    <script>
+        keyman.add({
+            name: 'develop-tool',
+            keys: ['ctrl', 'shift'],
+            keydown: function (event) {
+                document.getElementById('tester').innerHTML = 'KEY ON';
+            },
+            keyup: function (event) {
+                document.getElementById('tester').innerHTML = 'KEY OFF';
+            }
+        });
+
+        keyman.add({
+            name:'copy-then',
+            keys: ['ctrl', 'c'],
+            keydown: function(event){
+                document.getElementById('tester').innerHTML = 'COPY ON';
+            },
+            keyup: function(event){
+                document.getElementById('tester').innerHTML = 'COPY AND..';
+            }
+        });
+    </script>
+
+    <body>
+        <div tabindex="0" style="width:500px; height:500px; border:1px solid black;">
+            Click here and Test key [Ctrl] + [Shift]
+            <div id="tester" style="color:#FF832C; font-weight:bold;"></div>
+        </div>
+    </body>
+</HTML>

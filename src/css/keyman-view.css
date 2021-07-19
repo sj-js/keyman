@@ -1,0 +1,568 @@
+.right { text-align:center; }
+.left { text-align:left; }
+.right { text-align:right; }
+.float-left { float:left; }
+.float-right { float:right; }
+.inline-block { display:inline-block; }
+.block { display:block; }
+.gap { display:inline-block; width:20px; }
+.none { display:none; }
+
+
+/**************************************************
+ * Animation
+ **************************************************/
+@-moz-keyframes spin { 100% { -moz-transform: rotate(360deg); } }
+@-webkit-keyframes spin { 100% { -webkit-transform: rotate(360deg); } }
+@keyframes spin { 100% { -webkit-transform: rotate(360deg); transform:rotate(360deg); } }
+.ani-spin{
+    animation:spin 2s linear infinite;
+}
+.ani-spin-hover:hover{
+    animation:spin 2s linear infinite;
+}
+
+/**************************************************
+ * KEYMAN VIEW - TOOL
+ **************************************************/
+.keyman-view-tool {
+    display:inline-block; width:100%; max-width:500px; min-height:40px; border:2px solid #607a75; border-radius:7px; background:#7b9590;
+}
+.keyman-view-tool button {
+    outline: none; border-radius: 7px; border: 1px solid #000000; min-width: 50px; height: 25px; font-weight:bold; cursor:pointer; vertical-align: text-top;
+}
+.keyman-view-tool button:hover {
+    background:#b8e2c7;
+}
+.keyman-view-tool select {
+    outline: none; border-radius: 7px; border: 1px solid #000000; min-width: 50px; height: 25px; font-weight:bold; cursor:pointer;
+}
+.keyman-view-tool select:hover {
+    background:#b8e2c7;
+}
+
+.keyman-view-tool select > option:checked {
+    font-weight: bold;
+}
+
+/* TODO:js필요 */
+.keyman-view-tool select > option.selected {
+    font-weight: bold;
+    color: greenyellow;
+}
+
+.keyman-view-tool .title {
+    font-size:25px;
+    font-weight:bold;
+    color: ivory;
+}
+.keyman-view-tool .selected {
+    color:greenyellow;
+}
+
+.keyman-view-tool .setup {
+    width:35px;
+    height:35px;
+    font-size:25px;
+    background:none;
+    border:none;
+    vertical-align:top;
+    cursor:pointer;
+}
+
+/**************************************************
+ * KEYMAP - LIST
+ **************************************************/
+.key-map-title {
+    border: 2px solid #000000; border-radius: 7px; font-size: 20px; font-weight: bold;
+}
+
+ul.key-map {
+    width: 100%;
+    list-style-type: none;
+    padding: 0px;
+}
+ul.key-map > li{
+    margin: 2px;
+}
+ul.key-map > li > table.key-item.lock {
+    background:#586356;
+}
+ul.key-map > li > table.key-item {
+    border-width: 2px;
+    border-radius: 7px;
+    border-color: #CCCCCC;
+    border-style: solid;
+    background: #f3faf5;
+    width: 100%;
+}
+ul.key-map > li > table.key-item:hover {
+    border-color: #7ca783;
+}
+
+.keyman-view-view.unselected ul.key-map > li > table.key-item.lock {
+    background:#586356;
+}
+.keyman-view-view.unselected ul.key-map > li > table.key-item {
+    border-color: #3a3a3a;
+    background: #000000;
+}
+
+
+
+/**************************************************
+ * KEYMAP - LIST - ITEM
+ **************************************************/
+table.key-item .key-item-title {
+    width: 130px;
+    /** dotdotdot effect **/
+    max-width:0px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    border-radius: 7px 0px 0px 7px;
+}
+table.key-item .key-item-title:hover {
+    background:#b8e2c7;
+}
+table.key-item .key-item-keys {
+    width: 200px;
+    cursor: pointer;
+    border-radius: 0px 7px 7px 0px;
+}
+table.key-item .key-item-keys:hover {
+    background:#b8e2c7;
+}
+
+table.key-item .key-item-runner {
+    border-radius:7px;
+    border:1px solid #EEEEEE;
+    background:inherit;
+}
+table.key-item .key-item-runner-data {
+    border-radius:7px;
+    border:1px solid #EEEEEE;
+    background:inherit;
+}
+
+/**************************************************
+ * KEYMAP - BUTTON - ADDITION
+ **************************************************/
+.keyman-key-map-addition-key-button {
+    border-width: 2px;
+    border-radius: 7px;
+    border-color: #CCCCCC;
+    border-style: solid;
+    background: #EEEEEE;
+    width: 100%;
+    height: 35px;
+    text-align: center;
+    font-size:25px;
+    font-weight: bold;
+    color:#40553d;
+    cursor:pointer;
+}
+.keyman-key-map-addition-key-button:hover {
+    background: #b8e2c7;
+}
+
+
+
+
+/**************************************************
+ * Pop view
+ **************************************************/
+.keyman-view-pop-darkness {
+    display:block; position:fixed; top:0px; left:0px; width:100%; height:100%; background:rgba(0,0,0,.5); text-align:center;
+}
+.keyman-view-pop-content-box {
+    display:inline-block; overflow:auto; width:100%; max-width:550px; max-height:87%; min-height:300px; background:#FFFFFF; border-radius:7px; text-align: center;
+}
+.keyman-view-pop-content-box a {
+    color:#06517d; text-decoration:none; font-weight:bold;
+}
+.keyman-view-pop-content-box a:hover {
+    color:#78b1b7; text-decoration:underline; text-underline:#2c2c2c;
+}
+.keyman-view-pop-content-box input {
+    outline: none; width: 90%; height: 28px; border-radius: 7px; font-size: 21px; border: 2px solid #000000;
+}
+.keyman-view-pop-content-box input:placeholder-shown {
+    color:#BBBBBB; font-size:10px;
+}
+.keyman-view-pop-content-box button {
+    outline: none; border-radius: 7px; border: 1px solid #000000; min-width: 70px; height: 35px; font-weight:bold; cursor:pointer;
+}
+.keyman-view-pop-content-box button:hover {
+    background:#b8e2c7;
+}
+.keyman-view-pop-content-box select {
+    outline: none; border-radius: 7px; border: 1px solid #000000; min-width: 70px; height: 28px; font-weight:bold; cursor:pointer;
+}
+.keyman-view-pop-content-box select:hover {
+    background:#b8e2c7;
+}
+.keyman-view-pop-content-box .keyman-view-pop-title {
+    display:block; text-align:left; font-weight:bold; font-size:25px; color:cadetblue;
+}
+.keyman-view-pop-content-box .sign-typable {
+    font-size:25px; margin-left: 10px;
+}
+
+
+/**************************************************
+ * Pop view - SETUP
+ **************************************************/
+.keyman-view-pop-setup-box {
+    display:inline-block; width:95%; min-height:55px; border:1px solid #DDDDDD; border-radius:7px; background:#EEEEEE; text-align:center;
+}
+
+.keyman-view-pop-setup-box label {
+    display:block; text-align:left;
+}
+.keyman-view-pop-setup-box label {
+    color:#466e72; font-weight:bold; padding-left:3px;
+}
+
+.keyman-view-pop-setup-box .menu{
+    font-size:35px; height:55px;
+}
+
+.keyman-view-pop-setup-box .menu-small{
+    font-size:15px; height:35px;
+}
+
+
+/**************************************************
+ * Pop view - PROPERTIES
+ **************************************************/
+.keyman-view-pop-properties-box {
+    display:inline-block; width:95%; min-height:55px; border:1px solid #DDDDDD; border-radius:7px; background:#EEEEEE; text-align:center;
+}
+.keyman-view-pop-properties-box label {
+    display: block; text-align: left;
+}
+.keyman-view-pop-properties-box label {
+    color: #466e72; font-weight: bold; padding-left: 3px;
+}
+.keyman-view-pop-properties-box label:before {
+    content:""; display:block; height:8px;
+}
+
+.keyman-view-pop-properties-box .trash-can {
+    font-size:25px;
+}
+
+/**************************************************
+ * Pop view - KEY PATTERN
+ **************************************************/
+.keyman-view-pop-key-box {
+    display:inline-block; width:95%; min-height:55px; border:1px solid #DDDDDD; border-radius:7px; background:#EEEEEE; text-align:left;
+}
+
+.keyman-view-pop-key-box .key-step-list.shortcut {}
+.keyman-view-pop-key-box .key-step-list.command {}
+.keyman-view-pop-key-box .key-step-list.typing {}
+
+.key-step-list.typing .key-step {
+    padding:0px; border:none; background:none;
+}
+.key-step-list.typing .key-step-conjunction {
+    display:none;
+}
+
+
+.keyman-view-input-context {
+    border: 1px solid #e4e9f0; border-radius:12px; background:#fafafa;
+}
+
+
+/**************************************************
+ * Pop view - KEY PATTERN - KEY
+ **************************************************/
+.show-pannel {
+    display: inline-block; min-width: 100px; min-height: 50px; background: #EEEEEE; border: 1px solid #BBBBBB; border-radius: 5px;
+}
+
+.key-step-list {
+    display: inline-block; padding: 5px; border-radius: 7px;
+}
+.key-step-list.predicted {
+    opacity:0.3; padding:0px;
+}
+
+.key-step {
+    display: inline-block; padding: 5px; border: 1px solid #2c2c2c; border-radius: 5px; background: #9ebcae;
+}
+.key-step.checking > kbd {
+    border: 0px solid #2c2c2c; border-radius: 5px; background: #e0daa5;
+}
+.key-step.checked > kbd {
+    border: 0px solid #2c2c2c; border-radius: 5px; background: #dfd220;
+}
+.key-step.run > kbd {
+    border: 0px solid #2c2c2c; border-radius: 5px; background: #8dbc43;
+}
+
+.key-step .key{
+    margin: 2px; font-weight: bold;
+}
+.key-step-conjunction {
+    display: inline-block; margin-left:3px; margin-right:3px; text-align: center; min-height: 10px;
+}
+.button-combinable {
+    display: inline-block; text-align: center; min-width: 30px; min-height: 30px;
+}
+
+
+
+/**************************************************
+ * Pop view - Import and Merge previewer
+ **************************************************/
+/* Overwrite */
+.merge-import-1 .key-map-title.dup,
+.merge-import-1 .key-item.dup .key-item-title,
+.merge-import-1 .key-item.dup .key-item-keys,
+.merge-map-1 .key-map-title.dup,
+.merge-map-1 .key-item.dup .key-item-title,
+.merge-map-1 .key-item.dup .key-item-keys,
+.merge-key-1 .key-item.dup,
+.merge-option-1 .key-item.dup .key-item-runner.update,
+.merge-option-1 .key-item.dup .key-item-runner-data.update,
+.merge-option-1 .key-item.dup .key-step-list.update
+{
+    background:green;
+}
+
+/* New */
+.merge-map-2 .key-map-title.new,
+.merge-map-2 .key-map.new .key-item-title,
+.merge-map-2 .key-map.new .key-item-keys,
+.merge-key-2 .key-item.new
+{
+    background:greenyellow;
+}
+
+/* Ignore */
+.merge-map-2 .key-map-title.dup,
+.merge-map-3 .key-map-title.dup,
+.merge-map-3 .key-map.dup .key-item-title,
+.merge-map-3 .key-map.dup .key-item-keys,
+.merge-key-2 .key-item.dup,
+.merge-key-3 .key-item.dup,
+.merge-option-3 .key-item.dup .key-item-runner.update,
+.merge-option-3 .key-item.dup .key-item-runner-data.update,
+.merge-option-3 .key-item.dup .key-step-list.update
+{
+    background:#777777;
+}
+
+/* Sync */
+.merge-map-4 .key-map-title.dup,
+.merge-key-4 .key-item.dup
+{
+    /*background:yellow;*/
+}
+
+
+
+
+/****************************************************************************************************
+ * KEYS.css
+ *
+ * A simple stylesheet for rendering beautiful keyboard-style elements.
+ *
+ * Author:  Michael Hüneburg
+ * Website: http://michaelhue.com/keyscss
+ * License: MIT License (see LICENSE.txt)
+ ****************************************************************************************************/
+/* Base style, essential for every key. */
+/** https://github.com/michaelhue/keyscss **/
+kbd, .key {
+    display: inline;
+    display: inline-block;
+    min-width: 1em;
+    padding: .2em .3em;
+    font: normal .85em/1 "Lucida Grande", Lucida, Arial, sans-serif;
+    text-align: center;
+    text-decoration: none;
+    -moz-border-radius: .3em;
+    -webkit-border-radius: .3em;
+    border-radius: .3em;
+    border: none;
+    cursor: default;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+kbd[title], .key[title] {
+    cursor: help;
+}
+
+/* Dark style for display on light background. This is the default style. */
+kbd, kbd.dark, .dark-keys kbd, .key, .key.dark, .dark-keys .key {
+    background: rgb(80, 80, 80);
+    background: -moz-linear-gradient(top, rgb(60, 60, 60), rgb(80, 80, 80));
+    background: -webkit-gradient(linear, left top, left bottom, from(rgb(60, 60, 60)), to(rgb(80, 80, 80)));
+    color: rgb(250, 250, 250);
+    text-shadow: -1px -1px 0 rgb(70, 70, 70);
+    -moz-box-shadow: inset 0 0 1px rgb(150, 150, 150), inset 0 -.05em .4em rgb(80, 80, 80), 0 .1em 0 rgb(30, 30, 30), 0 .1em .1em rgba(0, 0, 0, .3);
+    -webkit-box-shadow: inset 0 0 1px rgb(150, 150, 150), inset 0 -.05em .4em rgb(80, 80, 80), 0 .1em 0 rgb(30, 30, 30), 0 .1em .1em rgba(0, 0, 0, .3);
+    box-shadow: inset 0 0 1px rgb(150, 150, 150), inset 0 -.05em .4em rgb(80, 80, 80), 0 .1em 0 rgb(30, 30, 30), 0 .1em .1em rgba(0, 0, 0, .3);
+}
+
+/* Light style for display on dark background. */
+kbd.light, .light-keys kbd, .key.light, .light-keys .key {
+    background: rgb(250, 250, 250);
+    background: -moz-linear-gradient(top, rgb(210, 210, 210), rgb(255, 255, 255));
+    background: -webkit-gradient(linear, left top, left bottom, from(rgb(210, 210, 210)), to(rgb(255, 255, 255)));
+    color:  rgb(50, 50, 50);
+    text-shadow: 0 0 2px rgb(255, 255, 255);
+    -moz-box-shadow: inset 0 0 1px rgb(255, 255, 255), inset 0 0 .4em rgb(200, 200, 200), 0 .1em 0 rgb(130, 130, 130), 0 .11em 0 rgba(0, 0, 0, .4), 0 .1em .11em rgba(0, 0, 0, .9);
+    -webkit-box-shadow: inset 0 0 1px rgb(255, 255, 255), inset 0 0 .4em rgb(200, 200, 200), 0 .1em 0 rgb(130, 130, 130), 0 .11em 0 rgba(0, 0, 0, .4), 0 .1em .11em rgba(0, 0, 0, .9);
+    box-shadow: inset 0 0 1px rgb(255, 255, 255), inset 0 0 .4em rgb(200, 200, 200), 0 .1em 0 rgb(130, 130, 130), 0 .11em 0 rgba(0, 0, 0, .4), 0 .1em .11em rgba(0, 0, 0, .9);
+}
+
+
+
+
+
+
+
+
+/**************************************************
+Radio button toggle switch
+Mike Hemberger
+https://codepen.io/JiveDig/pen/jbdJXR/
+ **************************************************/
+.switch-field {
+    display: flex;
+    /*margin-bottom: 36px;*/
+    overflow: hidden;
+}
+
+.switch-field input {
+    position: absolute !important;
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    width: 1px;
+    border: 0;
+    overflow: hidden;
+}
+
+.switch-field label {
+    background-color: #e4e4e4;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 14px;
+    line-height: 1;
+    text-align: center;
+    padding: 8px 16px;
+    margin-right: -1px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px rgba(255, 255, 255, 0.1);
+    transition: all 0.1s ease-in-out;
+}
+
+.switch-field label:hover {
+    cursor: pointer;
+}
+
+.switch-field input:checked + label {
+    background-color: #8bc1b1;
+    box-shadow: none;
+}
+
+.switch-field label:first-of-type {
+    border-radius: 4px 0 0 4px;
+}
+
+.switch-field label:last-of-type {
+    border-radius: 0 4px 4px 0;
+}
+
+/* This is just for CodePen. */
+
+.form {
+    max-width: 600px;
+    font-family: "Lucida Grande", Tahoma, Verdana, sans-serif;
+    font-weight: normal;
+    line-height: 1.625;
+    margin: 8px auto;
+    padding: 16px;
+}
+
+h2 {
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+
+
+/**
+    https://codepen.io/felicegattuso/pen/rrwJLp?editors=1100
+ */
+.toggle-w {
+    /*position:absolute;*/
+    /*top:50%;*/
+    /*left:50%;*/
+    /*transform:translate(-50%,-50%);*/
+}
+.toggle-w .lock {
+    position:relative;
+    cursor:pointer;
+    height:32px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+.toggle-w .lock input {
+    display:none;
+}
+.toggle-w .lock span:before,
+.toggle-w .lock span:after{
+    content:"";
+}
+.toggle-w .lock span:before {
+    width:64px;
+    height:32px;
+    margin-right:8px;
+    background:#d2c1c1;
+    border-radius:32px;
+    display:inline-block;
+    vertical-align:middle;
+    transition:all .5s cubic-bezier(.175, .885, .32, 1);
+}
+.toggle-w .lock span:after {
+    margin:2px;
+    width:28px;
+    height:28px;
+    background:#FFF;
+    border-radius:28px;
+    position:absolute;
+    left:0;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAB6ElEQVRYR+3XS8gPURjH8c8bkYV7KVslC4US5RJhgWKDQsnCJZcFWcrCJVkqioVsZOG+eDdvLJAkJJKVkr1EIQu3okfnXy/9Z+bMO8O/5OxmznP5nud35pxn+vR49A0hf/gsxHJMSf4vcQP38L1OzLoA83AaswqSPMFuPMyFqAOwBWcwrCL4N2zDuRyIXIDV6EfYf8IJXMDz9G4aNmEPRiQZVmGgCiIHYAxeYBLeYRmi1N3GHNzEaLzCVHwsg8gB2IfjKchmnK9Y1VacTTZ7cbIpQOzs+XiDyQiNy0ZI8BpjcReLmgJ8SCW9jpVVmqb5kGEp3mNcU4DOd30Z6zMBrmFNsi2VuWwySrkEsfIY96v0HAQX+2Zuel6BW/jaDb4IYCLuYHrmiqvMnmFx+op+sS0COIb9VVFrzh/C4d99igCuYF3NBFXmF7ExF+Aq1lZFrDl/CRv+A7RZgUfpdoyYOzG7QpJWJYjk0ZR8SUlH4kFJnxBmrQJsH3ThdBa+KzUrRYX44wDRCZ0qkaFVgMdYgM8p4agkwYy/BRB5nqZNGIfZDpQlb30P1DyDfpq3KsG/D9Dzy+goDgylziU+B3Ek9ygej9uY2RJEtPGdHjGrIQmj4amjndAQ4m3qjrt20zn/BQ3zl7v3HOAHddxjIRWQtfEAAAAASUVORK5CYII=);
+    background-size: 16px 16px;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index:2;
+    transition:all .5s cubic-bezier(.175, .885, .32, 1);
+}
+.toggle-w .lock input + span {
+    color: #6e6464;
+    /*font-weight:normal;*/
+}
+.toggle-w .lock input:checked + span {
+    color:#8bc1b1;
+    /*font-weight:bold;*/
+}
+.toggle-w .lock input:checked + span:after {
+    left:32px;
+    background-image:none;
+}
+.toggle-w .lock input:checked + span:before {
+    background-color: #8bc1b1;
+}

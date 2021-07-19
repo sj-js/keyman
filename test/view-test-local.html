@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<HTML>
+    <head>
+        <meta charset="utf-8" />
+        <meta name=viewport content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+        <script src="../../crossman/src/js/crossman.js"></script>
+        <link rel=stylesheet href="../src/css/keyman-view.css">
+        <script src="../src/js/keyman.js"></script>
+        <script src="../src/js/keyhandler/keyman-keyhandler-shortcut.js"></script>
+        <script src="../src/js/keyhandler/keyman-keyhandler-command.js"></script>
+        <script src="../src/js/keyhandler/keyman-keyhandler-typing.js"></script>
+        <script src="../src/js/keyhandler/keyman-keyhandler-defined.js"></script>
+        <script src="../src/js/keyhandler/keyman-keyhandler-definedcommand.js"></script>
+        <script src="../src/js/keytype/keyman-keytype-rome.js"></script>
+        <script src="../src/js/keytype/keyman-keytype-hangul.js"></script>
+        <script src="../src/js/keytype/keyman-keytype-kana.js"></script>
+        <script src="../src/js/view/keyman-view.js"></script>
+        <style>
+            * { margin:0; }
+            /*div:focus { background-color: Aqua; }*/
+        </style>
+    </head>
+
+    <script>
+        ready(function(){
+            showKeyMapView();
+            showDefinedKeyMapView();
+            showKeyInputView();
+        });
+
+        var keyman = new KeyMan()
+            .addKeyType([
+                new KeyMan.HangulKeyType(),
+                new KeyMan.RomeKeyType(),
+                new KeyMan.KanaKeyType()
+            ])
+            .addCluster([
+                new KeyMan.DefinedKeyMapCluster()
+            ])
+            .addKeyHandler([
+                new KeyMan.CommandKeyHandler(),
+                new KeyMan.ShortcutKeyHandler(),
+                new KeyMan.TypingKeyHandler(),
+                new KeyMan.DefinedKeyHandler().selectKeyMapCluster('defined').addKeyGroup([
+                    new KeyMan.KeyGroup().setName('direction').setModeWorkOnlyHighestPriority(true).setModeWorkWhenKeyUp(true).addDefinedKey([
+                            new KeyMan.DefinedFunctionKey({name:"DUL",  icon:"icon", keys:["w", "a"],   execute:function(e){ console.error('↙'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DUR",  icon:"icon", keys:["w", "d"],   execute:function(e){ console.error('↗'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DDL",  icon:"icon", keys:["s", "a"],   execute:function(e){ console.error('↙'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DDR",  icon:"icon", keys:["s", "d"],   execute:function(e){ console.error('↘'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DU",   icon:"icon", keys:["w"],        execute:function(e){ console.error('↑'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DD",   icon:"icon", keys:["s"],        execute:function(e){ console.error('↓'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DL",   icon:"icon", keys:["a"],        execute:function(e){ console.error('←'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"DR",   icon:"icon", keys:["d"],        execute:function(e){ console.error('→'); } })
+                        ]),
+                    new KeyMan.KeyGroup().setName('button').setModeWorkOnlyHighestPriority(true).setModeWorkWhenKeyUp(false).setDecisionTime(100).addDefinedKey([
+                            new KeyMan.DefinedFunctionKey({name:"BAB",  icon:"icon", keys:["t", "y"],   execute:function(e){ console.error('-🤜👊'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BCD",  icon:"icon", keys:["g", "h"],   execute:function(e){ console.error('-🦵🦶'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BAD",  icon:"icon", keys:["t", "h"],   execute:function(e){ console.error('/🤜🦶'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BBC",  icon:"icon", keys:["y", "g"],   execute:function(e){ console.error('/👊🦵'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BAC",  icon:"icon", keys:["t", "g"],   execute:function(e){ console.error('|🤜🦵'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BBD",  icon:"icon", keys:["y", "h"],   execute:function(e){ console.error('|👊🦶'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BA",   icon:"icon", keys:["t"],        execute:function(e){ console.error('🤜'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BB",   icon:"icon", keys:["y"],        execute:function(e){ console.error('👊'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BC",   icon:"icon", keys:["g"],        execute:function(e){ console.error('🦵'); } }),
+                            new KeyMan.DefinedFunctionKey({name:"BD",   icon:"icon", keys:["h"],        execute:function(e){ console.error('🦶'); } })
+                    ]),
+                ]),
+                new KeyMan.DefinedCommandKeyHandler()
+            ])
+            ;
+
+        var keymanView = new KeyMan.View(keyman);
+        var keymanDefinedView = new KeyMan.View(keyman);
+        keyman
+                .addEventListener(KeyMan.EVENT_EXECUTE, function(eventData){
+                    console.error('execute!!!!!', eventData);
+                    var functionKey = eventData.functionKey;
+                    var runner = eventData.runner;
+                    var data = eventData.data;
+                    if (runner !== null){
+                        if (typeof runner == 'string'){
+                            if (runner){
+                                var func = new Function('data', runner);
+                                func(data);
+                            }else{
+                                runByCode(runner, data);
+                            }
+                        }else if (runner instanceof Function){
+                            runner(data);
+                        }
+                    }
+                    //- OR
+                    keyman.getRunnerPool().run(runner, data);
+                })
+                .addEventListener(KeyMan.EVENT_UNTYPEABLE, function(eventData){
+                    getEl('div-show-signal').setStyle('color', 'red');
+                })
+                .addEventListener(KeyMan.EVENT_TYPEABLE, function(eventData){
+                    getEl('div-show-signal').setStyle('color', 'green');
+                })
+                ;
+
+        keyman.getUser().setModeAutoSave(true).load();
+        keyman.getCluster('defined').load();
+
+        keyman
+            .add({
+                type: KeyMan.DefinedCommandKeyHandler.TYPE,
+                name: '아따따뚜겐',
+                keys: [['DD'], ['DDL'], ['DL', 'BD']],
+                execute: function(e){ console.error('아따라따라뚜겐!!') }
+            })
+            .add({
+                type: KeyMan.DefinedCommandKeyHandler.TYPE,
+                name: '하도겐',
+                keys: [['DD'], ['DDR'], ['DR', 'BA']],
+                execute: function(e){ console.error('하~~도~겐!!!!') }
+            })
+            .add({
+                type: KeyMan.DefinedCommandKeyHandler.TYPE,
+                name: '쇼류겐',
+                keys: [['DR'], ['DD'], ['DDR'], ['DR', 'BA']],
+                execute: function(e){ console.error('쇼~~류~겐!!') }
+            })
+            .add({
+                type: KeyMan.DefinedCommandKeyHandler.TYPE,
+                name: '하오슈포겐',
+                keys: [['DR'], ['DL'], ['DDL'], ['DD'], ['DDR'], ['DR', 'BA']],
+                execute: function(e){ console.error('하오~쇼~포겐!!!!') }
+            })
+            ;
+
+        keyman.getCluster('defined')
+            .add({
+                name: 'DDL',
+                keys: ['s', 'a'],
+            })
+            .add({
+                name: 'DDR',
+                keys: ['s','d'],
+            })
+            .add({
+                name: 'DUL',
+                keys: ['w', 'a'],
+            })
+            .add({
+                name: 'DUR',
+                keys: ['w', 'd'],
+            })
+            .add({
+                name: 'DU',
+                keys: ['w'],
+            })
+            .add({
+                name: 'DD',
+                keys: ['s'],
+            })
+            .add({
+                name: 'DL',
+                keys: ['a'],
+            })
+            .add({
+                name: 'DR',
+                keys: ['d'],
+            })
+            .add({
+                name: 'BA',
+                keys: ['t'],
+            })
+            .add({
+                name: 'BB',
+                keys: ['y'],
+            })
+            .add({
+                name: 'BC',
+                keys: ['g'],
+            })
+            .add({
+                name: 'BD',
+                keys: ['h'],
+            })
+            ;
+
+        keyman
+            .add({
+                name: '_change_key_type-1',
+                keys: ['HANGULMODE'],
+                execute: function(e){
+                    keyman.toggleKeyType();
+                }
+            })
+            .add({
+                name: '_change_key_type-2',
+                keys: ['CTRL', 'SPACE'],
+                execute: function(e){
+                    keyman.toggleKeyType();
+                }
+            })
+            .add({
+                name: '_change_key_type',
+                keys: [['CTRL'], ['CTRL'], ['A']],
+                execute: function(e){
+                    console.error("!!!!!!!!!!");
+                    keyman.toggleKeyType();
+                }
+            })
+            .add({
+                name: 'tool-setup',
+                keys: [['ctrl', 'alt', 'shift', 's']],
+                execute: function(e){
+                    keymanView.generatePopViewForKeyManSetup(keyman.getUser()).appendTo(document.body);
+                }
+            })
+            .add({
+                name: 'tool-setup2',
+                keys: [['ctrl', 'shift', 'e']],
+                execute: function(e){
+                    // keymanView.exportData();
+                }
+            })
+            .add({
+                name: 'tool-setup3',
+                keys: [['ctrl', 'shift', 'i']],
+                execute: function(e){
+                    // keymanView.importData();
+                }
+            })
+            .add({
+                id: 'test-002',
+                name: 'add-key',
+                keys: [['ctrl'], ['d'], ['d']],
+                execute: function(e){
+                    var currentKeyMap = keymanView.getCurrentKeyMap();
+                    if (!currentKeyMap)
+                        return;
+                    keymanView.generatePopViewForKeyProperties(currentKeyMap).appendTo(document.body);
+                }
+            })
+                ;
+
+        // keyman.add({
+        //     name:'develop-tool',
+        //     title: 'Open temporal view',
+        //     keys: ['ctrl', 'shift'],
+        //     runner: 'A',
+        //     keydown: function(event){
+        //         document.getElementById('tester').innerHTML = 'KEY ON';
+        //     },
+        //     keyup: function(event){
+        //         document.getElementById('tester').innerHTML = 'KEY OFF';
+        //     }
+        // });
+        //
+        // keyman.add({
+        //     name:'copy-then',
+        //     title: 'copy something blahblah',
+        //     keys: ['ctrl', 'c'],
+        //     runner: 'B',
+        //     keydown: function(event){
+        //         document.getElementById('tester').innerHTML = 'COPY ON';
+        //     },
+        //     keyup: function(event){
+        //         document.getElementById('tester').innerHTML = 'COPY AND..';
+        //     }
+        // });
+        // // keyman.remove('copy-then');
+        //
+        // keyman.add({
+        //     name:'open-tool-simplely',
+        //     title: 'Open finder',
+        //     keys: [['shift'], ['shift']],
+        //     runner: 'B',
+        //     keydown: function(event){
+        //         document.getElementById('tester').innerHTML = 'Simple Open Tool Down';
+        //     },
+        //     keyup: function(event){
+        //         document.getElementById('tester').innerHTML = 'Simple Open Tool Up';
+        //     }
+        // });
+        //
+        //
+        keyman.add({
+            name:'test-simplely',
+            title: 'Welcome to SJJS',
+            keys: [['s'], ['j'], ['j'], ['s']],
+            runner: 'C',
+            keydown: function(event){
+                document.getElementById('tester').innerHTML = 'Simple Test Down';
+            },
+            keyup: function(event){
+                document.getElementById('tester').innerHTML = 'Simple Test Up';
+            }
+        });
+        // keyman.remove({name: 'test-simplely'});
+
+        keyman.getRunnerPool()
+            .add({id: 'A', title: 'A 123asdf', execute: function(data){
+                console.error('A');
+            }})
+            .add({id: 'B', title: 'B 123asdf', execute: function(data){
+                console.error('B');
+            }})
+            .add({id: 'C', title: 'C asd434f', execute: function(data){
+                console.error('C');
+            }});
+
+        keyman.getRunnerPool().getRunnerMap();
+        keyman.getRunnerPool().run('123', {a:1, b:2});
+
+    </script>
+
+
+    <script>
+        function showKeyMapView(){
+            getEl('div-tool-key-map').exists(function(it){
+                it.html('').add( keymanView.generateKeyManViewContext(keyman.getUser()) );
+            });
+            // getEl('div-show-key-map').exists(function(it){
+            //     it.html('');
+            //     var data = keyman.getSystem().get('_default').extractData();
+            //     keymanView.generateTableViewForKeyMap( data ).appendTo('div-show-key-map');
+            //     keymanView.generateButtonViewForKeyAdditionButton().appendTo('div-show-key-map');
+            // });
+        }
+
+        function showDefinedKeyMapView(){
+            getEl('div-tool-defined-key-map').exists(function(it){
+                it.html('').add( keymanDefinedView.generateKeyManViewContext(keyman.getCluster('defined')) );
+            });
+        }
+
+        function showKeyInputView(){
+            keymanView.generateKeyInputView(keyman).appendTo('div-key-input-view');
+        }
+    </script>
+
+
+    <body>
+        <div id="div-key-input-view" class="light-keys" style="position:absolute; top:0px; left:0px;">
+
+        </div>
+
+        <div id="div-tool-key-map" class="light-keys" style="max-width:500px;">
+        </div>
+
+        <div id="tester" style="color:#FF832C; font-weight:bold;">
+            TEST...
+        </div>
+
+        <div id="div-show-signal" class="" style="color:grey;">
+            ●
+        </div>
+
+        <div id="div-tool-defined-key-map" class="light-keys" style="max-width:500px;">
+        </div>
+
+<!--        <div id="div-show-shortcut" class="show-pannel light-keys">-->
+<!--        </div>-->
+<!--        <br/>-->
+
+<!--        <div id="div-show-command" class="show-pannel light-keys">-->
+<!--        </div>-->
+<!--        <br/>-->
+
+<!--        <div class="">-->
+<!--            <input id="input1" data-shortcut-input type="text"  /><br/>-->
+<!--            <input id="input2" data-shortcut-input type="text"  /><br/>-->
+<!--        </div>-->
+    </body>
+
+</HTML>
