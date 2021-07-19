@@ -1,3 +1,17 @@
+/***************************************************************************
+ * [Node.js] import
+ ***************************************************************************/
+try{
+    var crossman = require('@sj-js/crossman');
+    var ready = crossman.ready,
+        getClazz = crossman.getClazz,
+        getData = crossman.getData,
+        SjEvent = crossman.SjEvent
+    ;
+}catch(e){}
+
+
+
 /*************************
  *
  * ShortcutKeyHandler
@@ -5,29 +19,54 @@
  *************************/
 KeyMan.ShortcutKeyHandler = getClazz(function(keyman){
     KeyMan.KeyHandler.apply(this, arguments);
+    //Meta
+    this.name = KeyMan.ShortcutKeyHandler.TYPE;
+    this.type = KeyMan.ShortcutKeyHandler.TYPE;
 })
-    .extend(KeyMan.KeyHandler)
-    .returnFunction();
+.extend(KeyMan.KeyHandler)
+.returnFunction();
+
+KeyMan.ShortcutKeyHandler.TYPE = 'SHORTCUT';
+KeyMan.ShortcutKeyHandler.EVENT_SHORTCUTKEYDOWN = 'shortcutkeydown';
+KeyMan.ShortcutKeyHandler.EVENT_SHORTCUTKEYUP = 'shortcutkeyup';
 
 KeyMan.ShortcutKeyHandler.prototype.setup = function(){
     var that = this;
     var keyman = this.keyman;
-    this.setBeforeKeydownEventHandler(function(eventData){
-        //None
-    });
-    this.setKeydownEventHandler(function(eventData){
-        var key = eventData.key;
-        that.keydown(key);
-    });
-    this.setBeforeKeyupEventHandler(function(eventData){
-        //None
-    });
-    this.setKeyupEventHandler(function(eventData){
-        var key = eventData.key;
-        that.keyup(key);
-    });
 };
-KeyMan.ShortcutKeyHandler.prototype.keydown = function(key){
+
+KeyMan.ShortcutKeyHandler.prototype.checkMyTypeByFunctionKey = function(functionKey){
+    return (functionKey.keys instanceof Array && functionKey.keys.length > 0)
+        && (functionKey.keyStepList.length == 1)
+        ;
+};
+KeyMan.ShortcutKeyHandler.prototype.correctKeys = function(keys){
+    if (keys && keys.length == 1 && keys[0] instanceof Array){
+        keys = keys[0];
+    }
+    return keys;
+};
+
+
+
+KeyMan.ShortcutKeyHandler.prototype.beforeKeydown = function(eventData){
+    //Implements..
+};
+KeyMan.ShortcutKeyHandler.prototype.keydown = function(eventData){
+    var upperKey = eventData.upperKey;
+    this.doKeydown(upperKey);
+};
+KeyMan.ShortcutKeyHandler.prototype.beforeKeyup = function(eventData){
+    //Implements..
+};
+KeyMan.ShortcutKeyHandler.prototype.keyup = function(eventData){
+    var upperKey = eventData.upperKey;
+    this.doKeyup(upperKey);
+};
+
+
+
+KeyMan.ShortcutKeyHandler.prototype.doKeydown = function(upperKey){
     var that = this;
     var keyman = this.keyman;
     //Check Time
@@ -36,18 +75,19 @@ KeyMan.ShortcutKeyHandler.prototype.keydown = function(key){
     //Check Key
     var downedKeyList = Object.keys(keyman.downedKeyMap);
     var keySize = downedKeyList.length;
-    that.lastKey = key;
+    that.lastKey = upperKey;
     that.lastKeySize = keySize;
     that.lastKeyDownTime = currentTime;
     /** Event **/
-    keyman.execEventListenerByEventName('shortcutkeydown', {
+    keyman.execEventListenerByEventName(KeyMan.ShortcutKeyHandler.EVENT_SHORTCUTKEYDOWN, {
         keyStepList: [new KeyMan.KeyStep(downedKeyList)]
     });
-    that.execute(keyman.mainClusterList, key);
+    that.execute(keyman.mainClusterList, upperKey);
 };
-KeyMan.ShortcutKeyHandler.prototype.keyup = function(key){
+KeyMan.ShortcutKeyHandler.prototype.doKeyup = function(upperKey){
     var that = this;
     var keyman = this.keyman;
+
     //Check Keyup
     var downedKeyList = Object.keys(keyman.downedKeyMap);
     var nowKeySize = downedKeyList.length;
@@ -62,21 +102,25 @@ KeyMan.ShortcutKeyHandler.prototype.keyup = function(key){
             that.indexedFunctionKeyBufferMap.splice(i, 1);
         }
     }
-    keyman.execEventListenerByEventName('shortcutkeyup', {
+    keyman.execEventListenerByEventName(KeyMan.ShortcutKeyHandler.EVENT_SHORTCUTKEYUP, {
         keyStepList: that.keyStepProcessList
     });
 };
-KeyMan.ShortcutKeyHandler.prototype.execute = function(keyMapClusterList, key){
+
+
+
+KeyMan.ShortcutKeyHandler.prototype.execute = function(keyMapClusterList, upperKey){
+    var keyman = this.keyman;
     for (var i=0, keyMapCluster; i<keyMapClusterList.length ;i++){
         keyMapCluster = keyMapClusterList[i];
         if (keyMapCluster.modeLock)
             return;
-        var indexedFunctionKeyMap = keyMapCluster.getIndexdShortcutKeyMap();
-        var functionKeyMap = indexedFunctionKeyMap[key];
+        var indexedFunctionKeyMap = keyMapCluster.getIndexedKeyMap(this.type);
+        var functionKeyMap = indexedFunctionKeyMap[upperKey];
         var fk;
         for (var keyId in functionKeyMap){
             fk = functionKeyMap[keyId];
-            if (!this.keyman.isOnKeys(fk)){
+            if (!keyman.isOnKeys(fk)){
                 fk.unpress();
                 continue;
             }
@@ -98,7 +142,7 @@ KeyMan.ShortcutKeyHandler.prototype.executeFunctionKey = function(functionKey, k
     }
     functionKey.execute();
     if (this.keyman){
-        this.keyman.execEventListenerByEventName('execute', {
+        this.keyman.execEventListenerByEventName(KeyMan.EVENT_EXECUTE, {
             keyStepList: null,
             functionKey: functionKey,
         });

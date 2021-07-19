@@ -24,6 +24,7 @@ try{
  *
  ****************************************************************************************************/
 KeyMan.View = function(keyman){
+    /** Status **/
     this.keyman = keyman;
     this.latestUserInputKeyStepList = null;
     this.currentKeyCluster = null;
@@ -31,37 +32,57 @@ KeyMan.View = function(keyman){
     this.targetKeyMapContextElement = null;
     this.targetKeyMapToolPanelElement = null;
     this.targetKeyMapViewPanelElement = null;
+    this.timerToFadeout = null;
+
+    this.keyInputContextEl = null;
+    this.timeForDisplayForKeyInput = 1000
 
     var that = this;
     keyman
-        .addEventListener('addedkey', function(eventData){
+        .addEventListener(KeyMan.EVENT_KEYDOWN, function(eventData){
+            clearTimeout(that.timerToFadeout);
+            //Check auto fadeout
+            that.timerToFadeout = setTimeout(function(){
+                that.clearKeyInputView();
+            }, that.timeForDisplayForKeyInput);
+            //Show keyInputViewer
+            if (that.keyInputContextEl){
+                that.keyInputContextEl.setStyle("display", "block");
+            }
+        })
+        .addEventListener(KeyMan.EVENT_ADDEDKEY, function(eventData){
             console.error('addedkey!!', eventData);
             that.refresh();
         })
-        .addEventListener('modifiedkey', function(eventData){
+        .addEventListener(KeyMan.EVENT_MODIFIEDKEY, function(eventData){
             console.error('modifiedkey!!', eventData);
             that.refresh();
         })
-        .addEventListener('removedkey', function(eventData){
+        .addEventListener(KeyMan.EVENT_REMOVEDKEY, function(eventData){
             console.error('removedkey!!', eventData);
             that.refresh();
         })
-        .addEventListener('addedmap', function(eventData){
+        .addEventListener(KeyMan.EVENT_ADDEDMAP, function(eventData){
             console.error('addedmap!!', eventData);
             that.refresh();
         })
-        .addEventListener('modifiedoption', function(eventData){
+        .addEventListener(KeyMan.EVENT_MODIFIEDOPTION, function(eventData){
             console.error('modifiedoption!!', eventData);
             that.refresh();
         })
-        .addEventListener('modifiedmap', function(eventData){
+        .addEventListener(KeyMan.EVENT_MODIFIEDMAP, function(eventData){
             console.error('modifiedmap!!', eventData);
             that.refresh();
         })
-        .addEventListener('removedmap', function(eventData){
+        .addEventListener(KeyMan.EVENT_REMOVEDMAP, function(eventData){
             console.error('removedmap!!', eventData);
             that.refresh();
         })
+        .addEventListener(KeyMan.EVENT_CHANGEKEYTYPE, function(eventData){
+            var keyType = eventData.keyType;
+            getEl('keyman-button-keytype').html( keyType.getIconText() );
+        })
+    ;
 };
 
 /***************************************************************************
@@ -117,13 +138,28 @@ KeyMan.View.generateButtonViewForKey = function(key, parent){
 KeyMan.View.generateButtonViewForKeyStep = function(keyStep){
     var keySeparator;
     var keyStepEl = newEl('span').addClass('key-step')
+        .if(keyStep.status == KeyMan.KeyStep.STATUS_CHECKED, function(it){ it.addClass('checked'); })
         .if(keyStep.status == KeyMan.KeyStep.STATUS_CHECKING, function(it){ it.addClass('checking'); })
         .if(keyStep.status == KeyMan.KeyStep.STATUS_RUN, function(it){ it.addClass('run'); });
     getData(keyStep.keys).each(function(key){
+        if (key === null || key === undefined)
+            return;
         if (keySeparator)
             newEl('span').html(' + ').addClass('key-step-conjunction').appendTo(keyStepEl);
         keySeparator = KeyMan.View.generateButtonViewForKey(key).appendTo(keyStepEl);
     });
+    return keyStepEl;
+};
+
+KeyMan.View.generateButtonViewForAssembledKeyStep = function(keyStep){
+    var keySeparator;
+    var keyStepEl = newEl('span').addClass('key-step')
+        .if(keyStep.status == KeyMan.KeyStep.STATUS_CHECKED, function(it){ it.addClass('checked'); })
+        .if(keyStep.status == KeyMan.KeyStep.STATUS_CHECKING, function(it){ it.addClass('checking'); })
+        .if(keyStep.status == KeyMan.KeyStep.STATUS_RUN, function(it){ it.addClass('run'); });
+    var assembledChar = keyStep.getAssembledChar();
+    newEl('span').html(' + ').addClass('key-step-conjunction').appendTo(keyStepEl);
+    keySeparator = KeyMan.View.generateButtonViewForKey( assembledChar ).appendTo(keyStepEl);
     return keyStepEl;
 };
 
@@ -133,20 +169,31 @@ KeyMan.View.generateButtonViewForKeyStep = function(keyStep){
  *
  *************************/
 KeyMan.View.generateKeyViewForKeyStepList = function(keyStepList, type){
-    var keyStepSeparator;
     var keyStepListEl = newEl('span').addClass('key-step-list');
+    var keyStepSeparator;
     getData(keyStepList).each(function(keyStep){
         if (keyStepSeparator)
             newEl('span').html(' > ').addClass('key-step-conjunction').appendTo(keyStepListEl);
         keyStepSeparator = KeyMan.View.generateButtonViewForKeyStep(keyStep).appendTo(keyStepListEl);
     });
-    switch (type){
-        case KeyMan.TYPE_TYPING: keyStepListEl.addClass('typing'); break;
-        case KeyMan.TYPE_COMMAND: keyStepListEl.addClass('command'); break;
-        case KeyMan.TYPE_SHORTCUT: default: keyStepListEl.addClass('shotcut'); break;
-    }
-    return keyStepListEl;
+    if (type == null)
+        type = '';
+    return keyStepListEl.addClass( type.toLowerCase() );
 };
+
+KeyMan.View.generateKeyViewForAssembledKeyStepList = function(keyStepList, type){
+    var keyStepSeparator;
+    var keyStepListEl = newEl('span').addClass('key-step-list');
+    getData(keyStepList).each(function(keyStep){
+        if (keyStepSeparator)
+            newEl('span').html(' > ').addClass('key-step-conjunction').appendTo(keyStepListEl);
+        keyStepSeparator = KeyMan.View.generateButtonViewForAssembledKeyStep(keyStep).appendTo(keyStepListEl);
+    });
+    if (type == null)
+        type = '';
+    return keyStepListEl.addClass( type.toLowerCase() );
+};
+
 
 /*************************
  *
@@ -184,108 +231,157 @@ KeyMan.View.generateCheckLockSwitch = function(text, check){
 
 KeyMan.View.prototype.generateKeyInputView = function(keyman){
     var that = this;
-    var keyInputContextEl = newEl('div').addClass('keyman-view-input-context');
-    var shortcutViewEl = newEl('div').addClass('key-view-shortcut');
-    var commandViewEl = newEl('div').addClass('key-view-command');
-    var typingViewEl = newEl('div').addClass('key-view-typing');;
-    keyInputContextEl.add(typingViewEl).add(commandViewEl).add(shortcutViewEl);
-    if (keyman.typingKeyHandler){
-        KeyMan.View.makeTypingInputView(keyman, typingViewEl);
-    }
-    if (keyman.commandKeyHandler){
-        KeyMan.View.makeCommandInputView(keyman, commandViewEl);
-    }else if (keyman.shortcutKeyHandler){
-        KeyMan.View.makeShortcutInputView(keyman, shortcutViewEl);
-    }
-    //Typing
-    keyman.addEventListenerById('_input_adder_for_typingkeyhandler', 'addedtypingkeyhandler', function(e){
-        KeyMan.View.makeTypingInputView(keyman, typingViewEl, function(el){
-            that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
+    var keyInputContextEl = this.keyInputContextEl = newEl('div').addClass('keyman-view-input-context');
+
+    getData(keyman.keyHandlers).each(function(type, keyHandler){
+        var typeLower = type.toLowerCase();
+        var handlerClassName = 'key-view-' +typeLower;
+        var handlerViewEl = newEl('div').addClass(handlerClassName);
+        keyInputContextEl.add(handlerViewEl);
+
+        //-
+        var funcToApplyToKeyHandlerInputView = null;
+        switch (type){
+            case KeyMan.TYPE_TYPING: funcToApplyToKeyHandlerInputView = KeyMan.View.applyToTypingInputView; break;
+            case KeyMan.TYPE_COMMAND: funcToApplyToKeyHandlerInputView = KeyMan.View.applyToCommandInputView; break;
+            case KeyMan.TYPE_SHORTCUT: funcToApplyToKeyHandlerInputView = KeyMan.View.applyToShortcutInputView; break;
+            case KeyMan.TYPE_DEFINED: funcToApplyToKeyHandlerInputView = KeyMan.View.applyToDefinedInputView; break;
+            case KeyMan.TYPE_DEFINEDCOMMAND: funcToApplyToKeyHandlerInputView = KeyMan.View.applyToDefinedCommandInputView; break;
+            default: return; break;
+        }
+        funcToApplyToKeyHandlerInputView(keyman, handlerViewEl);
+
+        //-
+        var adderId = '_input_adder_for_' +typeLower+ 'keyhandler';
+        var removerId = '_input_remover_for_' +typeLower+ 'keyhandler';
+        var keydownId = '_input-' +typeLower+ 'keydown';
+        var eventForAdder = 'added' +typeLower+ 'keyhandler';
+        var eventForRemover = 'removed' +typeLower+ 'keyhandler';
+        var eventForKeydown = typeLower+ 'keydown';
+        keyman.addEventListenerById(adderId, eventForAdder, function(e){
+            funcToApplyToKeyHandlerInputView(keyman, handlerViewEl, function(el){
+                that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
+            });
+        });
+        keyman.addEventListenerById(removerId, eventForRemover, function(e){
+            keyman.checkAndDestroyKeyHandler(typeLower);
+            keyman.removeEventListenerById(keydownId, eventForKeydown);
         });
     });
-    keyman.addEventListenerById('_input_remover_for_typingkeyhandler', 'removedtypingkeyhandler', function(e){
-        keyman.checkAndDestroyTypingKeyHandler();
-        keyman.removeEventListenerById('_input-typingkeydown', 'typingkeydown');
-    });
-    //Command
-    keyman.addEventListenerById('_input_adder_for_commandkeyhandler', 'addedcommandkeyhandler', function(e){
-        KeyMan.View.makeCommandInputView(keyman, commandViewEl, function(el){
-            that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
-        });
-    });
-    keyman.addEventListenerById('_input_remover_for_commandkeyhandler', 'removedcommandkeyhandler', function(e){
-        keyman.checkAndDestroyCommandKeyHandler();
-        keyman.removeEventListenerById('_input-commandkeydown', 'commandkeydown');
-    });
-    //Shortcut
-    keyman.addEventListenerById('_input_adder_for_shortcutkeyhandler', 'addedshortcutkeyhandler', function(e){
-        KeyMan.View.makeShortcutInputView(keyman, shortcutViewEl, function(el){
-            that.animation = that.animation ? that.animation : KeyMan.View.generateAnimation(keyInputContextEl);
-        });
-    });
-    keyman.addEventListenerById('_input_remover_for_shortcutkeyhandler', 'removedshortcutkeyhandler', function(e){
-        keyman.checkAndDestroyShortcutKeyHandler();
-        keyman.removeEventListenerById('_input-shortcutkeydown','shortcutkeydown');
-    });
+
     // that.toggleUserKeyInputSystem(it, keyViewerEl);
     // KeyMan.View.generateKeyViewForKeyStepList( KeyMan.parseToKeyStepList(functionKey.keys), functionKey.type );
     return keyInputContextEl;
 };
-KeyMan.View.prototype.destroyKeyInputView = function(keyman){
-    keyman.checkAndDestroyTypingKeyHandler();
-    keyman.checkAndDestroyCommandKeyHandler();
-    keyman.checkAndDestroyShortcutKeyHandler();
-    keyman.removeEventListenerById('_input_adder_for_typingkeyhandler');
-    keyman.removeEventListenerById('_input_adder_for_commandkeyhandler');
-    keyman.removeEventListenerById('_input_adder_for_shortcutkeyhandler');
-    keyman.removeEventListenerById('_input_remover_for_typingkeyhandler');
-    keyman.removeEventListenerById('_input_remover_for_commandkeyhandler');
-    keyman.removeEventListenerById('_input_remover_for_shortcutkeyhandler');
+KeyMan.View.prototype.clearKeyInputView = function(keyman){
+    this.keyInputContextEl.setStyle("display", "none");
+};
+
+KeyMan.View.prototype.destroyKeyInputView = function(keyman){ //TODO: 여기 오는겨?
+    keyman.checkAndDestroyAllKeyHandler();
+    getData(keyman.keyHandlers).each(function(type, keyHandler){
+        var adderId = '_input_adder_for_' +typeLower+ 'keyhandler';
+        var removerId = '_input_remover_for_' +typeLower+ 'keyhandler';
+        keyman.removeEventListenerById(adderId);
+        keyman.removeEventListenerById(removerId);
+    });
+
 };
 
 
-KeyMan.View.makeTypingInputView = function(keyman, viewEl, callback){
-    keyman.makeTypingKeyHandlerForce();
-    keyman.addEventListenerById('_input-typingkeydown', 'typingkeydown', function(eventData){
+KeyMan.View.applyToTypingInputView = function(keyman, viewEl, callback){
+    var keyHandlerType = KeyMan.TYPE_TYPING;
+    var typeLower = keyHandlerType.toLowerCase();
+    var eventCustomId = '_input-' +typeLower+ 'keydown';
+    var eventName = typeLower+ 'keydown';
+    keyman.runKeyHandlerForce(keyHandlerType);
+    keyman.addEventListenerById(eventCustomId, eventName, function(eventData){
         if (!eventData.keyStepList)
             return;
         //Current User Key
-        var currentUserKeyListView = KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_TYPING);
+        var currentUserKeyListView = KeyMan.View.generateKeyViewForAssembledKeyStepList(eventData.keyStepList, keyHandlerType);
         getEl(viewEl).html('').add( currentUserKeyListView );
         //Predicted Key
         var predictStartIndex = eventData.matchingProcessKeyStepIndex;
         var predictData = getData(eventData.indexedFunctionKeyBufferMap).getFirst();
         if (predictData && predictData.keyStepList){
-            var predicatedKeyListView = KeyMan.View.generateKeyViewForKeyStepList( getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData(), KeyMan.TYPE_TYPING).addClass('predicted');
+            var predicatedKeyList = getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData();
+            var predicatedKeyListView = KeyMan.View.generateKeyViewForAssembledKeyStepList(predicatedKeyList, keyHandlerType).addClass('predicted');
             currentUserKeyListView.add([newEl('span').add(' > ').addClass('key-step-conjunction'), predicatedKeyListView]);
         }
         (callback && callback(viewEl));
     });
 };
-KeyMan.View.makeCommandInputView = function(keyman, viewEl, callback){
-    keyman.makeCommandKeyHandlerForce();
-    keyman.addEventListenerById('_input-commandkeydown', 'commandkeydown', function(eventData){
+KeyMan.View.applyToCommandInputView = function(keyman, viewEl, callback){
+    var keyHandlerType = KeyMan.TYPE_COMMAND;
+    var typeLower = keyHandlerType.toLowerCase();
+    var eventCustomId = '_input-' +typeLower+ 'keydown';
+    var eventName = typeLower+ 'keydown';
+    keyman.runKeyHandlerForce(keyHandlerType);
+    keyman.addEventListenerById(eventCustomId, eventName, function(eventData){
         if (!eventData.keyStepList)
             return;
         //Current User Key
-        var currentUserKeyListView = KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_COMMAND);
+        var currentUserKeyListView = KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, keyHandlerType);
         getEl(viewEl).html('').add( currentUserKeyListView );
         //Predicted Key
         var predictStartIndex = eventData.matchingProcessKeyStepIndex;
         var predictData = getData(eventData.indexedFunctionKeyBufferMap).getFirst();
         if (predictData && predictData.keyStepList){
-            var predicatedKeyListView = KeyMan.View.generateKeyViewForKeyStepList( getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData(), KeyMan.TYPE_COMMAND).addClass('predicted')
+            var predicatedKeyListView = KeyMan.View.generateKeyViewForKeyStepList( getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData(), keyHandlerType).addClass('predicted')
             currentUserKeyListView.add([newEl('span').add(' > ').addClass('key-step-conjunction'), predicatedKeyListView]);
         }
         (callback && callback(viewEl));
     });
 };
-KeyMan.View.makeShortcutInputView = function(keyman, viewEl, callback){
-    keyman.makeShortcutKeyHandlerForce();
-    keyman.addEventListenerById('_input-shortcutkeydown', 'shortcutkeydown', function(eventData){
+
+KeyMan.View.applyToDefinedInputView = function(keyman, viewEl, callback){
+    var keyHandlerType = KeyMan.TYPE_DEFINED;
+    var typeLower = keyHandlerType.toLowerCase();
+    var eventCustomId = '_input-' +typeLower+ 'keydown';
+    var eventName = typeLower+ 'keydown';
+    keyman.runKeyHandlerForce(keyHandlerType);
+    keyman.addEventListenerById(eventCustomId, eventName, function(eventData){
         if (!eventData.keyStepList)
             return;
-        getEl(viewEl).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_SHORTCUT) );
+        getEl(viewEl).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, keyHandlerType) );
+        (callback && callback(viewEl));
+    });
+};
+
+KeyMan.View.applyToDefinedCommandInputView = function(keyman, viewEl, callback){
+    var keyHandlerType = KeyMan.TYPE_DEFINEDCOMMAND;
+    var typeLower = keyHandlerType.toLowerCase();
+    var eventCustomId = '_input-' +typeLower+ 'keydown';
+    var eventName = typeLower+ 'keydown';
+    keyman.runKeyHandlerForce(keyHandlerType);
+    keyman.addEventListenerById(eventCustomId, eventName, function(eventData){
+        if (!eventData.keyStepList)
+            return;
+        //Current User Key
+        var currentUserKeyListView = KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, keyHandlerType);
+        getEl(viewEl).html('').add( currentUserKeyListView );
+        //Predicted Key
+        var predictStartIndex = eventData.matchingProcessKeyStepIndex;
+        var predictData = getData(eventData.indexedFunctionKeyBufferMap).getFirst();
+        if (predictData && predictData.keyStepList){
+            var predicatedKeyListView = KeyMan.View.generateKeyViewForKeyStepList( getData(predictData.keyStepList).range(predictStartIndex +1).returnCloneData(), keyHandlerType).addClass('predicted')
+            currentUserKeyListView.add([newEl('span').add(' > ').addClass('key-step-conjunction'), predicatedKeyListView]);
+        }
+        (callback && callback(viewEl));
+    });
+};
+
+KeyMan.View.applyToShortcutInputView = function(keyman, viewEl, callback){
+    var keyHandlerType = KeyMan.TYPE_SHORTCUT;
+    var typeLower = keyHandlerType.toLowerCase();
+    var eventCustomId = '_input-' +typeLower+ 'keydown';
+    var eventName = typeLower+ 'keydown';
+    keyman.runKeyHandlerForce(keyHandlerType);
+    keyman.addEventListenerById(eventCustomId, eventName, function(eventData){
+        if (!eventData.keyStepList)
+            return;
+        getEl(viewEl).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, keyHandlerType) );
         (callback && callback(viewEl));
     });
 };
@@ -331,6 +427,7 @@ KeyMan.View.prototype.generateToolViewForKeyMap = function(keyMapCluster){
     var selectEl = newEl('select');
     var buttonElToModifyKeyMap = newEl('button').html('🔧').addClass(['']);
     var buttonElToNewKeyMap = newEl('button').html('📄').addClass(['']);
+    var buttonElToToggleKeyType = newEl('button').attr('id', 'keyman-button-keytype').html( keyman.getCurrentKeyType().getIconText() ).addClass(['']);
     var selectorElOnMultiMapMode = newEl('button').html('✔').addClass(['setup']).addEventListener('click', function(e){
         console.error('!!!', that.checkCurrentKeyMapIsSelected());
         if (!that.checkCurrentKeyMapIsSelected()){
@@ -362,7 +459,7 @@ KeyMan.View.prototype.generateToolViewForKeyMap = function(keyMapCluster){
                 }
             })
             .add([
-                forEl(keyMapCluster.getFunctionKeyMaps(), function(k, v){
+                forEl(keyMapCluster.getKeyMaps(), function(k, v){
                     return newEl('option').html(v.title).setValue(v.id);
                 })
             ])
@@ -376,6 +473,9 @@ KeyMan.View.prototype.generateToolViewForKeyMap = function(keyMapCluster){
         buttonElToNewKeyMap.addEventListener('click', function(e){
             that.generatePopViewForKeyMapProperties(keyMapCluster).appendTo(document.body);
         }),
+        buttonElToToggleKeyType.addEventListener('click', function(e){
+            keyman.toggleKeyType();
+        }),
         newEl('span').addClass('gap'),
 
         ifEl((currentKeyMap && currentKeyMap.modeEditable),
@@ -385,7 +485,11 @@ KeyMan.View.prototype.generateToolViewForKeyMap = function(keyMapCluster){
         ),
         ifEl(!keyMapCluster.modeAutoSave,
             newEl('button').html('💾').addClass(['setup', 'float-right']).addEventListener('click', function(e){
-                that.generatePopViewForKeyMapProperties(keyMapCluster).appendTo(document.body);
+                //Popup 하고 Save Yes or No
+                if (confirm("Do you like to save?")){
+                    keyMapCluster.save()
+                    // that.generatePopViewForKeyMapProperties(keyMapCluster).appendTo(document.body);
+                }
             })
         ),
     ]);
@@ -479,7 +583,7 @@ KeyMan.View.generateTableViewForKeyMap = function(targetKeyMap, runnerPool, func
         .if(targetKeyMap.statusNew, function(it){ it.addClass('new'); })
         .if(targetKeyMap.statusSelectedOnMultiMap, function(it){ it.addClass('selected'); })
         .add([
-            forEl(targetKeyMap.functionKeyMap, function(key, functionKey){
+            forEl(targetKeyMap.getFunctionKeys(), function(key, functionKey){
                 var runner = runnerPool.get(functionKey.runner);
                 return newEl('li').addClass('').add([
 
@@ -601,6 +705,7 @@ KeyMan.View.prototype.generatePopViewForKeyProperties = function(targetKeyMap, t
             newEl('button').html('O').addEventListener('click', function(e){
                 if (modeNew){
                     targetKeyMap.add({
+                        type: KeyMan.TYPE_SHORTCUT,
                         title: inputForTitle.value(),
                         runner: selectForRunner.value(),
                         data: inputForRunnerData.value()
@@ -642,26 +747,40 @@ KeyMan.View.prototype.generatePopViewForKeyProperties = function(targetKeyMap, t
 KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targetFunctionKey){
     var that = this;
     var keyman = this.keyman;
+    var copiedFK = null;
     targetKeyMap = (targetKeyMap) ? targetKeyMap : that.currentKeyMap;
     targetFunctionKey = targetKeyMap.get(targetFunctionKey);
     var modeNew = !(!!targetFunctionKey);
     if (modeNew){
-        // targetFunctionKey = new KeyMan.FunctionKey({})
+        // copiedFunctionKey = new KeyMan.FunctionKey({})
+    }else{
+        copiedFK = targetFunctionKey.copy().setKeyMan(keyman);
     }
+    var keyHandlerButtonLabels = keyman.getKeyHandlerNames();
     var darkSpreadEl = newEl('div').addClass('keyman-view-pop-darkness').setStyle('zIndex', getData().findHighestZIndex(['div']) + 1);
     var popViewEl = newEl('div').addClass('keyman-view-pop-content-box');
     var popViewTitleEl = newEl('div').addClass('keyman-view-pop-title');
     var keyViewerEl = newEl('div').addClass(['keyman-view-pop-key-box', 'light-keys']);
     var typeableViewerEl = newEl('span');
-    var toggleForKeyHandleMode = KeyMan.View.generateRadioSwitch('handler', ['SHORTCUT', 'COMMAND', 'TYPING'], 0,function(it){
-        that.toggleUserKeyInputSystem(it, keyViewerEl);
-        targetFunctionKey.type = KeyMan.getHandlerTypeByName(it);
+    console.error('!!!@#asdf', targetFunctionKey, copiedFK);
+    var toggleForKeyHandleMode = KeyMan.View.generateRadioSwitch('handler', keyHandlerButtonLabels, 0,function(it){
+        var kh = keyman.getKeyHandlerByName(it);
+        copiedFK.type = kh.type;
+        that.latestUserInputKeyStepList = null;
+        KeyMan.View.generateKeyViewForKeyStepList(that.latestUserInputKeyStepList, copiedFK.type).appendTo( keyViewerEl.html('') );
+        that.toggleUserKeyInputSystem(kh.type, keyViewerEl);
     });
-    that.toggleUserKeyInputSystem( KeyMan.getNameByHandlerType(targetFunctionKey.type), keyViewerEl );
-    if (targetFunctionKey){
-        toggleForKeyHandleMode.findChildEl(function(it){ return it.attr('type') == 'radio' && it.value() == KeyMan.getNameByHandlerType(targetFunctionKey.type); }).prop('checked', true);
-        that.latestUserInputKeyStepList = targetFunctionKey.keyStepList;
-        KeyMan.View.generateKeyViewForKeyStepList(targetFunctionKey.keyStepList, targetFunctionKey.type).appendTo( keyViewerEl.html('') );
+
+    var keyHandler = keyman.getKeyHandlerByType(copiedFK.type);
+    keyHandler = keyHandler ? keyHandler : keyman.getDefaultKeyHandler();
+    var keyHandlerName = keyHandler.name;
+    var keyHandlerType = keyHandler.type;
+    that.toggleUserKeyInputSystem( keyHandlerType, keyViewerEl );
+    if (copiedFK){
+        var foundEl = toggleForKeyHandleMode.findChildEl(function(it){ return it.attr('type') == 'radio' && it.value() == keyHandlerName; });
+        foundEl.prop('checked', true);
+        that.latestUserInputKeyStepList = copiedFK.keyStepList;
+        KeyMan.View.generateKeyViewForKeyStepList(that.latestUserInputKeyStepList, copiedFK.type).appendTo( keyViewerEl.html('') );
     }
     popViewEl
         .add([
@@ -676,9 +795,9 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
             newEl('button').html('O').addEventListener('click', function(e){
                 var keys = getData(that.latestUserInputKeyStepList).collect(function(it){ return it.keys });
                 if (modeNew){
-                    targetKeyMap.add({title:'No Title', type:targetFunctionKey.type, keys: keys});
+                    targetKeyMap.add({title:'No Title', type:copiedFK.type, keys:keys});
                 }else{
-                    targetKeyMap.get(targetFunctionKey).modify({type:targetFunctionKey.type, keys: keys});
+                    targetKeyMap.get(targetFunctionKey).modify({type:copiedFK.type, keys:keys});
                 }
                 darkSpreadEl.trigger('click');
             }),
@@ -696,14 +815,23 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
             popViewEl
         ])
         .addEventListener('click', function(event){
-            keyman.removeEventListenerById('_test-typingkeydown','typingkeydown');
-            keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
-            keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
+            //- Remove All keydown Event
+            var keyHandlerTypes = keyman.getKeyHandlerTypes();
+            var keyHandlerLowerEventName;
+            var keydownId;
+            var keydownEventName;
+            getData(keyHandlerTypes).each(function(it){
+                keyHandlerLowerEventName = it.toLowerCase();
+                keydownId = '_test-' +keyHandlerLowerEventName+ 'keydown';
+                keydownEventName = keyHandlerLowerEventName+ 'keydown';
+                keyman.removeEventListenerById(keydownId, keydownEventName);
+            });
+
             keyman.removeEventListenerById('_test-untypeable', 'untypeable');
             keyman.removeEventListenerById('_test-typeable', 'typeable');
-            keyman.checkAndDestroyTypingKeyHandler();
-            keyman.checkAndDestroyShortcutKeyHandler();
-            keyman.checkAndDestroyCommandKeyHandler();
+
+            keyman.checkAndDestroyAllKeyHandler();
+
             darkSpreadEl.removeFromParent();
         });
     keyman.addEventListenerById('_test-untypeable', 'untypeable', function(eventData){
@@ -714,62 +842,41 @@ KeyMan.View.prototype.generatePopViewForKeyPattern = function(targetKeyMap, targ
     });
     return darkSpreadEl;
 };
-KeyMan.View.prototype.toggleUserKeyInputSystem = function(toggleValue, showingContextElement){
-    var that = this;
-    switch (toggleValue){
-        case 'TYPING': this.setupTypingViewAndEvent(showingContextElement); break;
-        case 'COMMAND': this.setupCommandViewAndEvent(showingContextElement); break;
-        case 'SHORTCUT': default: this.setupShortcutViewAndEvent(showingContextElement); break;
-    }
-};
-KeyMan.View.prototype.setupShortcutViewAndEvent = function(showingContextElement){
+KeyMan.View.prototype.toggleUserKeyInputSystem = function(keyHandlerType, showingContextElement){
     var that = this;
     var keyman = this.keyman;
-    keyman.checkAndDestroyCommandKeyHandler();
-    keyman.checkAndDestroyTypingKeyHandler();
-    keyman.makeShortcutKeyHandlerForce();
-    keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
-    keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
-    keyman.removeEventListenerById('_test-typingkeydown', 'typingkeydown');
-    keyman.addEventListenerById('_test-shortcutkeydown', 'shortcutkeydown', function(eventData){
+    var keyHandlerTypes = keyman.getKeyHandlerTypes();
+
+    getData(keyHandlerTypes).each(function(it){
+        (it == keyHandlerType) ? keyman.runKeyHandlerForce(it) : keyman.checkAndDestroyKeyHandler(it);
+    });
+
+    //- Remove All keydown Event
+    var keyHandlerLowerEventName;
+    var keydownId;
+    var keydownEventName;
+    getData(keyHandlerTypes).each(function(it){
+        keyHandlerLowerEventName = it.toLowerCase();
+        keydownId = '_test-' +keyHandlerLowerEventName+ 'keydown';
+        keydownEventName = keyHandlerLowerEventName+ 'keydown';
+        keyman.removeEventListenerById(keydownId, keydownEventName);
+    });
+
+    //- Add only this type Event
+    keyHandlerLowerEventName = keyHandlerType.toLowerCase()
+    keydownId = '_test-' +keyHandlerLowerEventName+ 'keydown';
+    keydownEventName = keyHandlerLowerEventName+ 'keydown';
+    console.error('000', keydownId, keydownEventName);
+    keyman.addEventListenerById(keydownId, keydownEventName, function(eventData){
+        console.error('000', eventData);
         if (!eventData.keyStepList)
             return;
         that.latestUserInputKeyStepList = eventData.keyStepList;
-        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_SHORTCUT) );
+        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, keyHandlerType) );
     });
 };
-KeyMan.View.prototype.setupCommandViewAndEvent = function(showingContextElement){
-    var that = this;
-    var keyman = this.keyman;
-    keyman.checkAndDestroyShortcutKeyHandler();
-    keyman.checkAndDestroyTypingKeyHandler();
-    keyman.makeCommandKeyHandlerForce();
-    keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
-    keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
-    keyman.removeEventListenerById('_test-typingkeydown', 'typingkeydown');
-    keyman.addEventListenerById('_test-commandkeydown', 'commandkeydown', function(eventData){
-        if (!eventData.keyStepList)
-            return;
-        that.latestUserInputKeyStepList = eventData.keyStepList;
-        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_COMMAND) );
-    });
-};
-KeyMan.View.prototype.setupTypingViewAndEvent = function(showingContextElement){
-    var that = this;
-    var keyman = this.keyman;
-    keyman.checkAndDestroyShortcutKeyHandler();
-    keyman.checkAndDestroyCommandKeyHandler();
-    keyman.makeTypingKeyHandlerForce();
-    keyman.removeEventListenerById('_test-shortcutkeydown','shortcutkeydown');
-    keyman.removeEventListenerById('_test-commandkeydown', 'commandkeydown');
-    keyman.removeEventListenerById('_test-typingkeydown', 'typingkeydown');
-    keyman.addEventListenerById('_test-typingkeydown', 'typingkeydown', function(eventData){
-        if (!eventData.keyStepList)
-            return;
-        that.latestUserInputKeyStepList = eventData.keyStepList;
-        getEl(showingContextElement).html('').add( KeyMan.View.generateKeyViewForKeyStepList(eventData.keyStepList, KeyMan.TYPE_TYPING) );
-    });
-};
+
+
 
 /*************************
  *

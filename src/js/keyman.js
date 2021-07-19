@@ -16,39 +16,41 @@ try{
 function KeyMan(domElement){
     SjEvent.apply(this, arguments);
 
+    /** DEFAULT **/
+    KeyMan.KEYTYPE_DEFAULT = new KeyMan.KeyType(this);
+
     /** Mode **/
     this.modeLock = false;
-    this.targetKeyMapId = '_system_default_map';
+    this.targetKeyMapId = '_system_default_fk_map';
     this.targetDomElement = (domElement) ? domElement : document;
+    this.selectedKeyType = KeyMan.KEYTYPE_DEFAULT;
 
     /** Status **/
     this.downedKeyMap = {};
+    this.downedDefinedKeyMap = {};
     this.downedKeyCount = 0;
     this.statusTypeable = null;
+    this.lastKeyInputTime = new Date().getTime();
+    this.runningKeyHandlers = {};
 
     /** KeyMap Cluster **/
     this.storage = null;
     this.system = null;
     this.group = null;
     this.user = null;
-    this.mainClusterList = [];
+    this.mainClusterList = []; //이거 무슨 의도였지?? 일단 이걸로 지소적인 Sort시키자.
     this.keyMapClusters = {};
     this.length = 0;
 
     /** Runner **/
     this.runnerPool = null;
 
+    /** KeyType Handler **/
+    this.keyTypes = {};
+
     /** FunctionKey Handler **/
-    this.shortcutKeyHandler = null;
-    this.commandKeyHandler = null;
-    this.typingKeyHandler = null;
-
-    /** Inputer **/
-    this.shortcutInputObjs = {};
-    this.commandInputObjs = {};
-
-    /** Commander **/
-    this.commanders = {};
+    this.keyHandlers = {};
+    this.defaultKeyHandlerType = 'SHORTCUT';
 
     /** Init **/
     this.init();
@@ -169,16 +171,22 @@ KeyMan.F12 = 'F12';
 
 KeyMan.PRIMARY_KEY_LIST = ['CONTROL', 'ALT', 'SHIFT'];
 
-KeyMan.TYPE_NONE = 0;
-KeyMan.TYPE_SHORTCUT = 1;
-KeyMan.TYPE_COMMAND = 2;
-KeyMan.TYPE_TYPING = 3;
+KeyMan.KEYTYPE_NAME_HANGUL = 'hangul';
+KeyMan.KEYTYPE_NAME_ROME = 'rome';
+KeyMan.KEYTYPE_NAME_KANA = 'kana';
+
+KeyMan.TYPE_NONE = 'NONE';
+KeyMan.TYPE_SHORTCUT = 'SHORTCUT';
+KeyMan.TYPE_COMMAND = 'COMMAND';
+KeyMan.TYPE_TYPING = 'TYPING';
+KeyMan.TYPE_DEFINED = 'DEFINED';
+KeyMan.TYPE_DEFINEDCOMMAND = 'DEFINEDCOMMAND';
 
 KeyMan.EVENT_AFTERDETECT = 'afterdetect';
 KeyMan.EVENT_KEYDOWN = 'keydown';
 KeyMan.EVENT_KEYUP = 'keyup';
-KeyMan.EVENT_KEYDOWNFORCOMMAND = 'keydownforcommand';
-KeyMan.EVENT_KEYUPFORCOMMAND = 'keyupforcommand';
+// KeyMan.EVENT_KEYDOWNFORCOMMAND = 'keydownforcommand';
+// KeyMan.EVENT_KEYUPFORCOMMAND = 'keyupforcommand';
 KeyMan.EVENT_PUSHSHORTCUT = 'pushshortcut';
 KeyMan.EVENT_FOCUS = 'focus';
 KeyMan.EVENT_BLUR = 'blur';
@@ -190,15 +198,23 @@ KeyMan.EVENT_BEFOREKEYUP = 'beforekeyup';
 
 KeyMan.EVENT_ADDEDKEY = 'addedkey';
 KeyMan.EVENT_ADDEDMAP = 'addedmap';
+KeyMan.EVENT_ADDEDFUNCTIONMAP = 'addedfunctionmap';
+KeyMan.EVENT_ADDEDDEFINEDMAP = 'addeddefinedmap';
 KeyMan.EVENT_ADDEDCLUSTER = 'addedcluster';
+KeyMan.EVENT_ADDEDKEYHANDLER = 'addedkeyhandler';
 KeyMan.EVENT_MODIFIEDKEY = 'modifiedkey';
 KeyMan.EVENT_MODIFIEDMAP = 'modifiedmap';
 KeyMan.EVENT_MODIFIEDCLUSTER = 'modifiedcluster';
 KeyMan.EVENT_REMOVEDKEY = 'removedkey';
 KeyMan.EVENT_REMOVEDMAP = 'removedmap';
+KeyMan.EVENT_REMOVEDFUNCTIONMAP = 'removedfunctionmap';
+KeyMan.EVENT_REMOVEDDEFINEDMAP = 'removeddefinedmap';
 KeyMan.EVENT_REMOVEDCLUSTER = 'removedcluster';
+KeyMan.EVENT_REMOVEDKEYHANDLER = 'removedkeyhandler';
 KeyMan.EVENT_MODIFIEDOPTION = 'modifiedoption';
 
+KeyMan.EVENT_CHANGEKEYTYPE = 'changekeytype';
+KeyMan.EVENT_EXECUTE = 'execute';
 
 /*************************
  *
@@ -212,26 +228,41 @@ KeyMan.prototype.init = function(){
     var domElement = this.targetDomElement;
     domElement.addEventListener(KeyMan.EVENT_KEYDOWN, function(event){
         var key = that.getKeyFromEvent(event);
-        var eventData = {event:event, key:key};
+        var validKey = (key != null);
+        var upperKey = validKey ? key.toUpperCase() : null;
+        var eventData = {event:event, key:key, upperKey:upperKey};
         that.turnOnAvailableLight(eventData);
-        that.execEventListenerByEventName(KeyMan.EVENT_BEFOREKEYDOWN, eventData);
-        if (key != null)
-            that.downedKeyMap[key] = true;
-        that.execEventListenerByEventName(KeyMan.EVENT_KEYDOWN, eventData);
-        that.execEventListenerByEventName(KeyMan.EVENT_KEYDOWNFORCOMMAND, eventData);
-        that.execEventListenerByEventName(KeyMan.EVENT_PUSHSHORTCUT, eventData);
+        that.eachKeyHandlers(function(keyHandler){
+            keyHandler.beforeKeydown(eventData);
+            // that.execEventListenerByEventName(KeyMan.EVENT_BEFOREKEYDOWN, eventData);
+        });
+        that.pressKey(upperKey);
+        that.eachKeyHandlers(function(keyHandler){
+            keyHandler.keydown(eventData);
+            // that.execEventListenerByEventName(KeyMan.EVENT_KEYDOWN, eventData);
+        });
+
+        // that.execEventListenerByEventName(KeyMan.EVENT_KEYDOWNFORCOMMAND, eventData);
+        // that.execEventListenerByEventName(KeyMan.EVENT_PUSHSHORTCUT, eventData);
         // that.execEventListenerByEventName('pushcommand', event);
         return true;
     });
     domElement.addEventListener(KeyMan.EVENT_KEYUP, function(event){
         var key = that.getKeyFromEvent(event);
-        var eventData = {event:event, key:key};
-        that.execEventListenerByEventName(KeyMan.EVENT_BEFOREKEYUP, eventData);
-        if (key != null)
-            delete that.downedKeyMap[key];
-        that.execEventListenerByEventName(KeyMan.EVENT_KEYUP, eventData);
-        that.execEventListenerByEventName(KeyMan.EVENT_KEYUPFORCOMMAND, eventData);
-        that.execEventListenerByEventName(KeyMan.EVENT_PUSHSHORTCUT, eventData);
+        var validKey = (key != null);
+        var upperKey = validKey ? key.toUpperCase() : null;
+        var eventData = {event:event, key:key, upperKey:upperKey};
+        that.eachKeyHandlers(function(keyHandler){
+            keyHandler.beforeKeyup(eventData);
+            // that.execEventListenerByEventName(KeyMan.EVENT_BEFOREKEYUP, eventData);
+        });
+        that.releaseKey(upperKey);
+        that.eachKeyHandlers(function(keyHandler){
+            keyHandler.keyup(eventData);
+            // that.execEventListenerByEventName(KeyMan.EVENT_KEYUP, eventData);
+        });
+        // that.execEventListenerByEventName(KeyMan.EVENT_KEYUPFORCOMMAND, eventData);
+        // that.execEventListenerByEventName(KeyMan.EVENT_PUSHSHORTCUT, eventData);
         // that.execEventListenerByEventName('pushcommand', event);
         return true;
     });
@@ -263,32 +294,49 @@ KeyMan.prototype.init = function(){
     this.addEventListener(KeyMan.EVENT_ADDEDMAP, function(data){
             that.storage.addKeyMap(data);
         })
+        .addEventListener(KeyMan.EVENT_ADDEDDEFINEDMAP, function(data){
+            // that.storage.addDefinedKeyMap(data);
+        })
         .addEventListener(KeyMan.EVENT_ADDEDCLUSTER, function(data){
             that.storage.addKeyMap(data);
         })
         .addEventListener(KeyMan.EVENT_REMOVEDMAP, function(data){
             that.storage.removeKeyMap(data);
         })
+        .addEventListener(KeyMan.EVENT_REMOVEDDEFINEDMAP, function(data){
+            // that.storage.removeDefinedKeyMap(data);
+        })
         .addEventListener(KeyMan.EVENT_REMOVEDCLUSTER, function(data){
             that.storage.removeKeyMap(data);
-        });
+        })
+        ;
+
     //- Setup KeyMapCluster for Default
-    this.system = new KeyMan.KeyMapCluster().setId('_system').setTitle('SYSTEM').setKeyMap(
+    this.system = new KeyMan.FunctionKeyMapCluster().setId('_system').setTitle('SYSTEM').setKeyMap(
         new KeyMan.KeyMap({modeRemovable:false}).setId(this.targetKeyMapId).setTitle('SYSTEM_DEFALUT_MAP')
     );
-    this.group = new KeyMan.KeyMapCluster().setId('_group').setTitle('GROUP').setKeyMap(
-        new KeyMan.KeyMap({modeRemovable:false}).setId('_group_default_map').setTitle('GROUP_DEFAULT_MAP')
+    this.group = new KeyMan.FunctionKeyMapCluster().setId('_group').setTitle('GROUP').setKeyMap(
+        new KeyMan.KeyMap({modeRemovable:false}).setId('_group_default_fk_map').setTitle('GROUP_DEFAULT_MAP')
     );
-    this.user = new KeyMan.KeyMapCluster().setId('_user').setTitle('USER').setKeyMap(
-        new KeyMan.KeyMap({modeRemovable:false}).setId('_user_default_map').setTitle('USER_DEFAULT_MAP')
+    this.user = new KeyMan.FunctionKeyMapCluster().setId('_user').setTitle('USER').setKeyMap(
+        new KeyMan.KeyMap({modeRemovable:false}).setId('_user_default_fk_map').setTitle('USER_DEFAULT_MAP')
     );
     this.mainClusterList = [
-        this.system,
+        this.user,
         this.group,
-        this.user
+        this.system
     ];
     this.addCluster(this.mainClusterList);
     return this;
+};
+
+KeyMan.prototype.pressKey = function(upperKey){
+    if (upperKey)
+        this.downedKeyMap[upperKey] = true;
+};
+KeyMan.prototype.releaseKey = function(upperKey){
+    if (upperKey)
+        delete this.downedKeyMap[upperKey];
 };
 
 
@@ -368,6 +416,18 @@ KeyMan.prototype.extractData = function(){
  * Others
  *
  *************************/
+KeyMan.prototype.convertKeyToKey = function(eventData){
+    var convertedKey = this.selectedKeyType.convertKeyToKey(eventData);
+    return convertedKey;
+};
+
+KeyMan.prototype.assemble = function(convertedKey, currentKeyStepProcess, eventData){
+    var newKeySteps = this.selectedKeyType.assemble(convertedKey, currentKeyStepProcess, eventData);
+    return newKeySteps;
+};
+
+
+
 KeyMan.prototype.lock = function(){
     this.modeLock = true;
     return this;
@@ -388,6 +448,36 @@ KeyMan.prototype.turnOffAvailableLight = function(eventData){
     this.execEventListenerByEventName(KeyMan.EVENT_UNTYPEABLE, eventData);
 };
 
+KeyMan.prototype.getCurrentKeyType = function(){
+    return this.selectedKeyType;
+};
+KeyMan.prototype.getKeyType = function(keyType){
+    var keyType = this.keyTypes[keyType];
+    return keyType;
+};
+KeyMan.prototype.setKeyType = function(keyType){
+    this.selectedKeyType = keyType;
+    return this;
+};
+KeyMan.prototype.toggleKeyType = function(){
+    if (this.selectedKeyType){
+        if (this.selectedKeyType.name == KeyMan.KEYTYPE_NAME_HANGUL)
+            this.selectedKeyType = this.getKeyType(KeyMan.KEYTYPE_NAME_KANA);
+        else if (this.selectedKeyType.name == KeyMan.KEYTYPE_NAME_KANA)
+            this.selectedKeyType = this.getKeyType(KeyMan.KEYTYPE_NAME_ROME);
+        else if (this.selectedKeyType.name == KeyMan.KEYTYPE_NAME_ROME)
+            this.selectedKeyType = this.getKeyType(KeyMan.KEYTYPE_NAME_HANGUL);
+        // this.selectedKeyType = KeyMan.KEYTYPE_DEFAULT;
+        console.log('[KEYTYPE]' + this.selectedKeyType.name, this.selectedKeyType);
+    }else{
+        //???
+    }
+    this.execEventListenerByEventName(KeyMan.EVENT_CHANGEKEYTYPE, {
+        keyType: this.selectedKeyType
+    });
+    return this;
+};
+
 KeyMan.prototype.add = function(functionKey){
     if (functionKey instanceof Array){
         for (var i=0; i<functionKey.length; i++){
@@ -396,13 +486,13 @@ KeyMan.prototype.add = function(functionKey){
         return this;
     }
     if (functionKey instanceof KeyMan.KeyMapCluster){
-        var cluster = functionKey;
-        this.addCluster(cluster);
+        this.addCluster(functionKey);
     }else if (functionKey instanceof KeyMan.KeyMap){
-        var keyMap = functionKey;
-        this.getTargetKeyMap().add(keyMap);
+        this.addKeyMap(functionKey);
+    }else if (functionKey instanceof KeyMan.FunctionKey){
+        this.addFunctionKey(functionKey);
     }else{
-        this.getTargetKeyMap().add(functionKey);
+        this.addFunctionKey(functionKey);
     }
     return this;
 };
@@ -416,16 +506,24 @@ KeyMan.prototype.remove = function(functionKey){
     this.getTargetKeyMap().remove(functionKey);
     return this;
 };
+
+
 KeyMan.prototype.getTargetKeyMap = function(){
+    return this.getTargetFunctionKeyMap();
+};
+KeyMan.prototype.setTargetKeyMap = function(targetFunctionKeyMap){
+    return this.setTargetFunctionKeyMap(targetFunctionKeyMap);
+};
+KeyMan.prototype.getTargetFunctionKeyMap = function(){
     return this.getStorage().getKeyMap(this.targetKeyMapId);
 };
-KeyMan.prototype.setTargetKeyMap = function(targetKeyMap){
-    if (!targetKeyMap)
+KeyMan.prototype.setTargetFunctionKeyMap = function(targetFunctionKeyMap){
+    if (!targetFunctionKeyMap)
         return;
-    if (targetKeyMap instanceof KeyMap.KeyMap)
-        targetKeyMap = targetKeyMap.id;
-    if (typeof targetKeyMap == 'string')
-        this.targetKeyMapId = targetKeyMap;
+    if (targetFunctionKeyMap instanceof KeyMan.KeyMap)
+        targetFunctionKeyMap = targetFunctionKeyMap.id;
+    if (typeof targetFunctionKeyMap == 'string')
+        this.targetKeyMapId = targetFunctionKeyMap;
     return this;
 };
 
@@ -483,108 +581,192 @@ KeyMan.prototype.removeCluster = function(cluster){
 };
 
 
+KeyMan.prototype.addKeyType = function(param){
+    var that = this;
+    getData(param).each(function(keyType){
+        keyType.setKeyMan(that);
+        that.keyTypes[keyType.type] = keyType;
+        console.debug('[KeyType] ADDED !', keyType.type, keyType);
+    });
+    return this;
+};
+
+
+KeyMan.prototype.addKeyHandler = function(param){
+    var that = this;
+    if ( !(param instanceof Array))
+        param = [param];
+
+    getData(param).each(function(kh){
+        if (that.hasKeyHandler(kh)){
+            console.error(kh, " on ", param);
+            throw 'Already exists KeyHandler. [(' +kh+ ')' +kh.name+ ']';
+        }
+        if (kh instanceof KeyMan.KeyHandler){
+            kh.setKeyMan(that).setParent(that);
+            that.keyHandlers[kh.type] = kh;
+            /** Setup **/
+            // keyHandler.setup(that);
+            /** Event **/
+            that.execEventListenerByEventName(KeyMan.EVENT_ADDEDKEYHANDLER, kh);
+            console.debug('[KeyHandler] added ' +kh.name, kh.type, kh);
+        }else{
+            //- Error
+        }
+    });
+    // getData(param).sort(function(a, b){
+    //     return a - b;
+    // });
+    return this;
+};
+KeyMan.prototype.getKeyHandler = function(keyHandler){
+    if (!keyHandler)
+        return null;
+    return this.keyHandlers[keyHandler];
+};
+KeyMan.prototype.getKeyHandlers = function(){
+    return this.keyHandlers;
+};
+KeyMan.prototype.hasKeyHandler = function(keyHandler){
+    return !!this.getKeyHandler(keyHandler);
+};
+KeyMan.prototype.removeKeyHandler = function(param){
+    var that = this;
+    getData(param).each(function(keyHandler){
+        if (!that.hasCluster(keyHandler))
+            return;
+        //Unsetup all keyMap
+        keyHandler.unsetup();
+        //Remove keyMapCluster
+        delete that.keyHandlers[keyHandler.type];
+        /** Check Event **/
+        this.execEventListenerByEventName(KeyMan.EVENT_REMOVEDKEYHANDLER, keyHandler);
+        /** Save Auto **/
+        //- None
+        /** null **/
+        keyHandler.setParent(null).setKeyMan(null);
+        console.debug('[KeyHandler] REMOVED !', keyHandler.type);
+    });
+    return this;
+};
+
+
+KeyMan.prototype.addKeyMap = function(keyMap){
+    this.getStorage().addKeyMap(keyMap);
+    return this;
+};
+KeyMan.prototype.removeKeyMap = function(keyMap){
+    this.getStorage().removeKeyMap(keyMap);
+    return this;
+};
+
+
+KeyMan.prototype.addFunctionKey = function(functionKey){
+    var keyMap = this.getTargetKeyMap();
+    if (!keyMap && !this.storage.hasAnyKeyMap()){
+        keyMap = this.system.newKeyMap({id:this.targetKeyMapId});
+    }
+    keyMap.add(functionKey);
+    return this;
+};
+KeyMan.prototype.removeFunctionKey = function(functionKey){
+    this.getTargetKeyMap().remove(functionKey);
+    return this;
+};
+
+
 
 
 
 KeyMan.prototype.setupKeyHandler = function(functionKey){
-    switch (functionKey.type){
-        case KeyMan.TYPE_TYPING:
-            var indexedTypingKeyCount = this.getIndexedTypingKeyCount();
-            if (!this.typingKeyHandler && indexedTypingKeyCount > 0){
-                this.makeTypingKeyHandlerForce();
-            }else if (this.typingKeyHandler && indexedTypingKeyCount == 0){
-                this.destroyTypingKeyHandlerForce();
-            }
-            break;
-        case KeyMan.TYPE_COMMAND:
-            var indexedCommandKeyCount = this.getIndexedCommandKeyCount();
-            if (!this.commandKeyHandler && indexedCommandKeyCount > 0){
-                this.makeCommandKeyHandlerForce();
-            }else if (this.commandKeyHandler && indexedCommandKeyCount == 0){
-                this.destroyCommandKeyHandlerForce();
-            }
-            break;
-        case KeyMan.TYPE_SHORTCUT:
-        default:
-            var indexedShortcutKeyCount = this.getIndexedShortcutKeyCount();
-            if (!this.shortcutKeyHandler && indexedShortcutKeyCount > 0){
-                this.makeShortcutKeyHandlerForce();
-            }else if (this.shortcutKeyHandler && indexedShortcutKeyCount == 0){
-                this.destroyShortcutKeyHandlerForce();
-            }
-            break;
+    var functionKeyType = functionKey.type;
+    if (functionKeyType === null || functionKeyType === undefined){
+        console.warn('['+functionKey.name+'] ' + 'No Type Error (해당 키에 해당하는 적절한 핸들러가 존재하지 않습니다 )');
+        return;
+    }
+
+    var indexedKeyCount = this.getIndexedKeyCount(functionKeyType);
+    var keyHandler = this.getRunningKeyHandler(functionKeyType);
+    if (keyHandler){
+        if (indexedKeyCount == 0){
+            this.stopKeyHandlerForce(functionKeyType);
+        }
+    }else{
+        if (indexedKeyCount > 0){
+            this.runKeyHandlerForce(functionKeyType);
+        }
     }
 };
-KeyMan.prototype.makeShortcutKeyHandlerForce = function(){
-    if (this.shortcutKeyHandler)
-        return;
-    this.shortcutKeyHandler = new KeyMan.ShortcutKeyHandler(this);
-    this.addKeyHandler(this.shortcutKeyHandler);
+
+KeyMan.prototype.runKeyHandlerForce = function(type){
+    if (this.checkRunningKeyHandler(type))
+        return false;
+    var notRunningKeyHandler = this.getKeyHandler(type);
+    if (!notRunningKeyHandler)
+        return false;
+    // notRunningKeyHandler.setKeyMan(this);
+    this.runKeyHandler(notRunningKeyHandler);
+    return true;
 };
-KeyMan.prototype.destroyShortcutKeyHandlerForce = function(){
-    if (!this.shortcutKeyHandler)
+KeyMan.prototype.stopKeyHandlerForce = function(type){
+    if (!this.checkRunningKeyHandler(type))
         return;
-    this.removeKeyHandler(this.shortcutKeyHandler);
-    this.shortcutKeyHandler = null;
+    var runningKeyHandler = this.getRunningKeyHandler(type);
+    this.stopKeyHandler(runningKeyHandler);
 };
-KeyMan.prototype.checkAndDestroyShortcutKeyHandler = function(){
-    var indexedShortcutKeyCount = this.getIndexedShortcutKeyCount();
-    if (indexedShortcutKeyCount == 0)
-        this.destroyShortcutKeyHandlerForce();
+KeyMan.prototype.checkAndDestroyKeyHandler = function(type){
+    var indexedKeyCount = this.getIndexedKeyCount(type);
+    if (indexedKeyCount == 0)
+        this.stopKeyHandlerForce(type);
+};
+KeyMan.prototype.checkAndDestroyAllKeyHandler = function(){
+    var that = this;
+    getData(this.getKeyHandlerTypes()).each(function(it){
+        that.checkAndDestroyKeyHandler(it);
+    });
 };
 
-KeyMan.prototype.makeCommandKeyHandlerForce = function(){
-    if (this.commandKeyHandler)
-        return;
-    this.commandKeyHandler = new KeyMan.CommandKeyHandler(this);
-    this.addKeyHandler(this.commandKeyHandler);
+KeyMan.prototype.checkRunningKeyHandler = function(type){
+    return !!this.getRunningKeyHandler(type);
 };
-KeyMan.prototype.destroyCommandKeyHandlerForce = function(){
-    if (!this.commandKeyHandler)
-        return;
-    this.removeKeyHandler(this.commandKeyHandler);
-    this.commandKeyHandler = null;
-};
-KeyMan.prototype.checkAndDestroyCommandKeyHandler = function(){
-    var indexedCommandKeyCount = this.getIndexedCommandKeyCount();
-    if (indexedCommandKeyCount == 0)
-        this.destroyCommandKeyHandlerForce();
+KeyMan.prototype.getRunningKeyHandler = function(type){
+    return this.runningKeyHandlers[type];
 };
 
-KeyMan.prototype.makeTypingKeyHandlerForce = function(){
-    if (this.typingKeyHandler)
-        return;
-    this.typingKeyHandler = new KeyMan.TypingKeyHandler(this);
-    this.addKeyHandler(this.typingKeyHandler);
-};
-KeyMan.prototype.destroyTypingKeyHandlerForce = function(){
-    if (!this.typingKeyHandler)
-        return;
-    this.removeKeyHandler(this.typingKeyHandler);
-    this.typingKeyHandler = null;
-};
-KeyMan.prototype.checkAndDestroyTypingKeyHandler = function(){
-    var indexedCommandKeyCount = this.getIndexedTypingKeyCount();
-    if (indexedCommandKeyCount == 0)
-        this.destroyTypingKeyHandlerForce();
-};
 
-KeyMan.prototype.addKeyHandler = function(keyHandler){
-    if (keyHandler.getKeydownEventHandler() && keyHandler.getKeyupEventHandler())
+
+KeyMan.prototype.runKeyHandler = function(keyHandler){
+    if (this.checkRunningKeyHandler(keyHandler.type)){
+        console.debug('[KeyHandler] Already ADDED !', keyHandler);
         return;
-    keyHandler.setup();
-    this.addEventListenerByEventName(KeyMan.EVENT_BEFOREKEYDOWN, keyHandler.getBeforeKeydownEventHandler());
-    this.addEventListenerByEventName(KeyMan.EVENT_KEYDOWN, keyHandler.getKeydownEventHandler());
-    this.addEventListenerByEventName(KeyMan.EVENT_BEFOREKEYUP, keyHandler.getBeforeKeyupEventHandler());
-    this.addEventListenerByEventName(KeyMan.EVENT_KEYUP, keyHandler.getKeyupEventHandler());
-    console.debug('[KeyHandler] ADDED !', keyHandler);
+    }
+    var notRunningKeyHandler = keyHandler;
+    notRunningKeyHandler.setup(this);
+    // this.addEventListenerByEventName(KeyMan.EVENT_BEFOREKEYDOWN, notRunningKeyHandler.getBeforeKeydownEventHandler());
+    // this.addEventListenerByEventName(KeyMan.EVENT_KEYDOWN, notRunningKeyHandler.getKeydownEventHandler());
+    // this.addEventListenerByEventName(KeyMan.EVENT_BEFOREKEYUP, notRunningKeyHandler.getBeforeKeyupEventHandler());
+    // this.addEventListenerByEventName(KeyMan.EVENT_KEYUP, notRunningKeyHandler.getKeyupEventHandler());
+    console.debug('[KeyHandler] run ' +notRunningKeyHandler.name, notRunningKeyHandler);
+    var type = notRunningKeyHandler.type;
+    this.runningKeyHandlers[type] = notRunningKeyHandler;
+    //TODO: sort
+    // getData(this.runningKeyHandlers).sort(function(a, b){
+    //    return a - b;
+    // });
 };
-KeyMan.prototype.removeKeyHandler = function(keyHandler){
-    this.removeEventListenerByEventName(KeyMan.EVENT_BEFOREKEYDOWN, keyHandler.getBeforeKeydownEventHandler());
-    this.removeEventListenerByEventName(KeyMan.EVENT_KEYDOWN, keyHandler.getKeydownEventHandler());
-    this.removeEventListenerByEventName(KeyMan.EVENT_BEFOREKEYUP, keyHandler.getBeforeKeyupEventHandler());
-    this.removeEventListenerByEventName(KeyMan.EVENT_KEYUP, keyHandler.getKeyupEventHandler());
-    console.debug('[KeyHandler] REMOVED !', keyHandler);
+KeyMan.prototype.stopKeyHandler = function(keyHandler){
+    if (!this.checkRunningKeyHandler(keyHandler.type)){
+        console.debug('[KeyHandler] Already REMOVED !', keyHandler);
+        return;
+    }
+    var runningKeyHandler = keyHandler;
+    // this.removeEventListenerByEventName(KeyMan.EVENT_BEFOREKEYDOWN, runningKeyHandler.getBeforeKeydownEventHandler());
+    // this.removeEventListenerByEventName(KeyMan.EVENT_KEYDOWN, runningKeyHandler.getKeydownEventHandler());
+    // this.removeEventListenerByEventName(KeyMan.EVENT_BEFOREKEYUP, runningKeyHandler.getBeforeKeyupEventHandler());
+    // this.removeEventListenerByEventName(KeyMan.EVENT_KEYUP, runningKeyHandler.getKeyupEventHandler());
+    console.debug('[KeyHandler] REMOVED !', runningKeyHandler);
+    var type = runningKeyHandler.type;
+    delete this.runningKeyHandlers[type];
 };
 
 KeyMan.prototype.getSystem = function(){
@@ -614,6 +796,7 @@ KeyMan.prototype.getKeyFromEvent = function(event){
     var key;
     var keyCode = (event.keyCode) ? event.keyCode : event.which;
     var keyName = (event.key) ? event.key : null;
+    // console.log("으디:", keyCode, keyName);
     if (keyCode == 32) //SPACE
         return KeyMan.SPACE;
     if (keyCode == 229) //Something bad..
@@ -622,7 +805,8 @@ KeyMan.prototype.getKeyFromEvent = function(event){
         if (keyCode && 48 <= keyCode && keyCode <= 57){
             key = this.convertToKeyFromKeyCode(keyCode);
         }else{
-            key = keyName.toUpperCase();
+            // key = keyName.toUpperCase();
+            key = keyName;
         }
     }else{
         key = this.convertToKeyFromKeyCode(keyCode).toUpperCase();
@@ -659,18 +843,30 @@ KeyMan.prototype.convertToKeyCodesFrom = function(keyList){
     return keyCodes;
 };
 
-KeyMan.prototype.eachFunctionKey = function(closure){
-    this.eachFunctionKeyMap(function(fkMap){
+
+KeyMan.prototype.eachKeyHandlers = function(closure){
+    getData(this.keyHandlers).each(function(id, kh){
+        closure(kh);
+    })
+    return this;
+};
+KeyMan.prototype.eachRunningKeyHandlers = function(closure){
+    getData(this.runningKeyHandlers).each(function(id, kh){
+        closure(kh);
+    })
+    return this;
+};
+KeyMan.prototype.eachKey = function(closure){
+    this.eachKeyMap(function(fkMap){
         for (var fk in fkMap){
             closure(fk);
         }
     })
     return this;
 };
-
-KeyMan.prototype.eachFunctionKeyMap = function(closure){
-    for (var functionKeyMap in this.functionKeyMaps){
-        closure(functionKeyMap);
+KeyMan.prototype.eachKeyMap = function(closure){
+    for (var keyMap in this.keyMaps){
+        closure(keyMap);
     }
     return this;
 };
@@ -702,108 +898,52 @@ KeyMan.prototype.isOn = function(downedShortcutId){
     return this.system.isOn(downedShortcutId) || this.user.isOn(downedShortcutId);
 };
 
-KeyMan.prototype.getIndexedShortcutKeyCount = function(){
-    return this.system.getIndexedShortcutKeyCount() + this.user.getIndexedShortcutKeyCount();;
-};
 
-KeyMan.prototype.getIndexedCommandKeyCount = function(){
-    return this.system.getIndexedCommandKeyCount() + this.user.getIndexedCommandKeyCount();
+KeyMan.prototype.getIndexedKeyCount = function(functionKeyType){
+    // return this.system.getIndexedKeyCount(functionKeyType) + this.user.getIndexedKeyCount(functionKeyType);
+    return getData(this.keyMapClusters).sum(function(id, cluster){
+        return cluster.getIndexedKeyCount(functionKeyType);
+    });
 };
-KeyMan.prototype.getIndexedTypingKeyCount = function(){
-    return this.system.getIndexedTypingKeyCount() + this.user.getIndexedTypingKeyCount();
-};
+// KeyMan.prototype.getIndexedShortcutKeyCount = function(){
+//     return this.system.getIndexedShortcutKeyCount() + this.user.getIndexedShortcutKeyCount();;
+// };
+// KeyMan.prototype.getIndexedCommandKeyCount = function(){
+//     return this.system.getIndexedCommandKeyCount() + this.user.getIndexedCommandKeyCount();
+// };
+// KeyMan.prototype.getIndexedTypingKeyCount = function(){
+//     return this.system.getIndexedTypingKeyCount() + this.user.getIndexedTypingKeyCount();
+// };
 
 KeyMan.prototype.clearKeyDownedMap = function(){
-    for (var key in this.downedKeyMap){
-        delete this.downedKeyMap[key];
+    for (var upperKey in this.downedKeyMap){
+        delete this.downedKeyMap[upperKey];
     }
 };
-KeyMan.prototype.clearCommanderKey = function(){
-    var commanders = this.commanders;
-    for (var commanderName in commanders){
-        var commander = commanders[commanderName];
-        commander.clearDefinedKey();
+
+
+KeyMan.prototype.judgeKeyHandlerType = function(functionKey){
+    var resultKeyHandlerType;
+    var keyHandler;
+    for (var keyHandlerName in this.keyHandlers){
+        keyHandler = this.keyHandlers[keyHandlerName];
+        if (keyHandler.checkMyTypeByFunctionKey(functionKey)){
+            resultKeyHandlerType = keyHandler.type;
+            break;
+        }
     }
-    return this;
+    return resultKeyHandlerType;
 };
-
-
-
-
-
-
-
-/*************************
- * @Deprecated
- * @param functionKey
- * @returns {KeyMan}
- *************************/
-KeyMan.prototype.addShortcut = function(infoObj){
-    return this.add(infoObj);
-};
-KeyMan.prototype.getShortcut = function(shortcutName){
-    return this.get(shortcutName);
-};
-KeyMan.prototype.hasShortcut = function(shortcutName){
-    return this.has(shortcutName);
-};
-KeyMan.prototype.delShortcut = function(shortcutName){
-    return this.remove(shortcutName);
-};
-KeyMan.prototype.addCommand = function(infoObj){
-    this.addEventListenerByEventName('saveCommand', plusFuncKeyDown);
-};
-KeyMan.prototype.delCommand = function(keyPatternName){
-};
-
-/*************************
- *
- * COMMANDER - Add Commander
- * @param commanderName
- * @returns {KeyManCommander}
- *
- *************************/
-KeyMan.prototype.addCommander = function(commanderName, modeDefinedKey){
-    var commander;
-    if (!this.getCommander(commanderName)){
-        commander = new KeyManCommander(commanderName);
-        commander.parent = this;
-        commander.keydownFunc = (modeDefinedKey) ? commander.handleDefinedKeydown() : commander.handleKeydown();
-        commander.keyupFunc = (modeDefinedKey) ? commander.handleDefinedKeyup() : commander.handleKeyup();
-        this.commanders[commanderName] = commander;
-        this.addEventListenerByEventName(KeyMan.EVENT_KEYDOWNFORCOMMAND, commander.keydownFunc );
-        this.addEventListenerByEventName(KeyMan.EVENT_KEYUPFORCOMMAND, commander.keyupFunc );
-    }else{
-        commander = this.getCommander(commanderName);
+KeyMan.prototype.correctKeys = function(keys, type){
+    var correctedKeys = keys;
+    var keyHandler = this.getKeyHandler(type);
+    if (keyHandler){
+        correctedKeys = keyHandler.correctKeys(keys);
     }
-    return commander;
+    return correctedKeys;
 };
-KeyMan.prototype.getCommander = function(commanderName){
-    return this.commanders[commanderName];
-};
-KeyMan.prototype.hasCommander = function(commanderName){
-    var commanders = this.commanders;
-    if (commanderName){
-        return commanders[commanderName] != null && commanders[commanderName] != undefined;
-    }else{
-        return commanders != null && commanders != undefined && Object.keys(commanders).length > 0;
-    }
-};
-KeyMan.prototype.delCommander = function(commanderName){
-    var commanders = this.commanders;
-    var commander = commanders[commanderName];
-    this.removeEventListenerByEventName(KeyMan.EVENT_KEYDOWNFORCOMMAND, commander.definedKeydownFunc );
-    this.removeEventListenerByEventName(KeyMan.EVENT_KEYUPFORCOMMAND, commander.definedKeyupFunc );
-    delete commanders[commanderName];
-    return this;
-};
-KeyMan.prototype.delAllCommander = function(){
-    var commanders = this.commanders;
-    for (var commanderName in commanders){
-        this.delCommander(commanderName);
-    }
-    return this;
-};
+
+
 
 
 
@@ -821,11 +961,16 @@ KeyMan.prototype.delAllCommander = function(){
  *
  ****************************************************************************************************/
 KeyMan.FunctionKey = function(object){
+    // SjEvent.apply(this, arguments);
     this._id = getData().createUUID();
     this.id;
     this.name;
     this.title = 'No Title';
     this.type = KeyMan.TYPE_NONE;
+    this.group = null;
+    this.icon = null;
+    this.sequence = -1;
+
     this.modeLock = false;
     this.modeEditable = true;
     this.modeRemovable = true;
@@ -835,6 +980,7 @@ KeyMan.FunctionKey = function(object){
     this.keydown = null; //Event Function
     this.keypress = null; //Event Function
     this.keyup = null; //Event Function
+    // this.execute = null;
 
     //_
     this.parent; //KeyMap
@@ -880,21 +1026,24 @@ KeyMan.FunctionKey.prototype.setup = function(keyman){
 };
 KeyMan.FunctionKey.prototype.setupKeyStepList = function(){
     /** Keys **/
+    var keyman = this.keyman;
     this.originKeys = this.keys;
-    this.keys = KeyMan.convertToRightKeyFromKeys(this.originKeys);
-    var keys = this.keys;
+    var keys = this.keys = KeyMan.convertToRightKeyFromKeys(this.originKeys);
     // var keyCodes = this.convertToKeyCodesFrom(keys);
     this.keyStepList = (keys) ? KeyMan.parseToKeyStepList(keys) : [];
+
     /** EventHandler **/
-    console.error('////////////////////////', this.type);
-    if (this.type === null || this.type === undefined || this.type === KeyMan.TYPE_NONE)
-        this.type = KeyMan.getHandlerType(this.keyStepList);
-    console.error('KeySetup !!! => ', KeyMan.getNameByHandlerType(this.type), this.keys, this.keyStepList);
-    if (this.type == KeyMan.TYPE_SHORTCUT){
-        if (this.keys && this.keys.length == 1 && this.keys[0] instanceof Array){
-            this.keys = this.keys[0];
-        }
+    // console.error('////////////////////////', this.type, this.keys, this.keyStepList);
+    if (this.type === null || this.type === undefined || this.type === KeyMan.TYPE_NONE){
+        if (keyman !== null && keyman !== undefined)
+            this.type = keyman.judgeKeyHandlerType(this);
     }
+    // console.error('////////////////////////', this.type);
+    if (this.type !== null && this.type !== undefined){
+        if (keyman !== null && keyman !== undefined)
+            this.keys = keyman.correctKeys(this.keys, this.type);
+    }
+    return this;
 };
 KeyMan.FunctionKey.prototype.unsetup = function(){
     console.error('[FunctionKey] unsetup...', this);
@@ -915,6 +1064,19 @@ KeyMan.FunctionKey.prototype.setKeyMan = function(keyman){
     this.keyman = keyman;
     return this;
 };
+KeyMan.FunctionKey.prototype.setType = function(type){
+    this.type = type;
+    return this;
+};
+KeyMan.FunctionKey.prototype.setIcon = function(icon){
+    this.icon = icon;
+    return this;
+};
+KeyMan.FunctionKey.prototype.setGroup = function(group){
+    this.group = group;
+    return this;
+};
+
 KeyMan.FunctionKey.prototype.saveData = function(){
 
 };
@@ -929,8 +1091,8 @@ KeyMan.FunctionKey.prototype.loadDataFromObject = function(_data){
     this.name = _data.name;
     this.title = _data.title;
     this.data = _data.data;
-    console.error('123123123123123', _data.type);
     this.type = _data.type;
+    this.group = _data.group;
     this.runner = _data.runner;
     this.modeLock = _data.modeLock;
     this.modeEditable = _data.modeEditable;
@@ -949,6 +1111,7 @@ KeyMan.FunctionKey.prototype.extractData = function(){
             title: this.title,
             data: this.data,
             type: this.type,
+            group: this.group,
             runner: this.runner,
             modeLock: this.modeLock,
             modeEditable: this.modeEditable,
@@ -962,7 +1125,7 @@ KeyMan.FunctionKey.prototype.extractData = function(){
 KeyMan.FunctionKey.prototype.copy = function(){
     return KeyMan.FunctionKey.copy(
         this.extractData()._data,
-        this.parent.functionKeyMap
+        this.parent.getFunctionKeys()
     );
 };
 
@@ -1010,6 +1173,18 @@ KeyMan.FunctionKey.prototype.unpress = function(){
 KeyMan.FunctionKey.prototype.isPressed = function(){
     return this.statusPressed;
 };
+KeyMan.FunctionKey.prototype.hasKey = function(checkKey){
+    var keys = this.keys;
+    for (var i=0, key; i<keys.length; i++){
+        // keyStep = keys[i];
+        // if (keyStep.hasKey(checkKey))
+        //     return true;
+        key = keys[i];
+        if (key == checkKey)
+            return true;
+    }
+    return false;
+};
 
 KeyMan.FunctionKey.prototype.execute = function(){
     this.triggerKeydown();
@@ -1056,17 +1231,18 @@ KeyMan.FunctionKey.equalsKeyStepList = function(a, b){
     return true;
 };
 KeyMan.FunctionKey.copy = function(_data, parentRepoMap, checkNumber){
+    checkNumber = (checkNumber) ? checkNumber : 0;
     //- Make new title
     var oldTitle = _data.title;
-    var checkNumber = (checkNumber) ? checkNumber : 0;
     var newTitle = (checkNumber) ? oldTitle + '_' + checkNumber : oldTitle;
+    //- Naver duplicated title
     for (var id in parentRepoMap){
         var item = parentRepoMap[id];
         if (item.title == newTitle)
             return KeyMan.FunctionKey.copy(_data, parentRepoMap, checkNumber +1);
     }
     //- Clone
-    console.error('titl', newTitle, parentRepoMap);
+    console.error('[FunctionKey] Copy', newTitle, parentRepoMap);
     return new KeyMan.FunctionKey().loadDataFromObject(_data).init({id:null, title:newTitle});
 };
 
@@ -1086,12 +1262,13 @@ KeyMan.KeyMap = function(object){
     this.id;
     this.name;
     this.title = 'No Title';
+    this.order = -1;
     this.modeLock = false;
     this.modeEditable = true;
     this.modeRemovable = true;
 
     //_
-    this.functionKeyMap = {};
+    this.functionKeys = {};
     this.parent; //KeyMapCluster
     this.keyman; //KeyMan
 
@@ -1099,6 +1276,7 @@ KeyMan.KeyMap = function(object){
     this.tempCopy;
     this.statusDuplicated;
     this.statusNew;
+    this.statusSelectedOnMultiMap;
     this.init(object);
 };
 KeyMan.KeyMap.prototype.init = function(object){
@@ -1150,7 +1328,7 @@ KeyMan.KeyMap.prototype.loadDataFromObject = function(_data){
     this.modeLock = _data.modeLock,
     this.modeEditable = _data.modeEditable,
     this.modeRemovable = _data.modeRemovable,
-    getData(_data.functionKeyMap).each(function(fKeyId, fKeyData){
+    getData(_data.functionKeys).each(function(fKeyId, fKeyData){
         console.error('add Key', fKeyData, that);
         that.add( new KeyMan.FunctionKey().loadData(fKeyData) );
     });
@@ -1166,7 +1344,7 @@ KeyMan.KeyMap.prototype.extractData = function(){
             modeLock: this.modeLock,
             modeEditable: this.modeEditable,
             modeRemovable: this.modeRemovable,
-            functionKeyMap: getData(this.functionKeyMap).collectMap(function(fKeyId, fKey){
+            functionKeys: getData(this.getFunctionKeys()).collectMap(function(fKeyId, fKey){
                 return {
                     key: fKeyId,
                     value: fKey.extractData()
@@ -1178,16 +1356,21 @@ KeyMan.KeyMap.prototype.extractData = function(){
 KeyMan.KeyMap.prototype.copy = function(){
     return KeyMan.KeyMap.copy(
         this.extractData()._data,
-        this.parent.functionKeyMaps
+        this.parent.getKeyMaps()
     );
 };
 KeyMan.KeyMap.prototype.traverse = function(callback){
-    getData(this.functionKeyMap).any(function(keyObjectId, keyObject){
+    getData(this.getFunctionKeys()).any(function(keyObjectId, keyObject){
         callback(keyObject);
     });
     return this;
 };
 
+
+KeyMan.KeyMap.prototype.isOn = function(shortcutFunctionKeyId){
+    var functionKey = this.get(shortcutFunctionKeyId);
+    return (functionKey !== null && functionKey !== undefined) ? functionKey.isPressed() : false;
+};
 KeyMan.KeyMap.prototype.lock = function(){
     this.modeLock = true;
 };
@@ -1203,11 +1386,19 @@ KeyMan.KeyMap.prototype.add = function(functionKey){
         }
         return this;
     }
+    if (functionKey instanceof KeyMan.KeyMap){
+        var that = this;
+        var keyMap = functionKey;
+        keyMap.traverse(function(fk){
+            that.add(fk);
+        });
+        return this;
+    }
     if ( !(functionKey instanceof KeyMan.FunctionKey) )
         functionKey = new KeyMan.FunctionKey(functionKey);
     if (this.has(functionKey))
         throw 'Already exists function-key.';
-    this.functionKeyMap[functionKey.id] = functionKey;
+    this.set(functionKey);
     functionKey.setParent(this);
     /** Setup **/
     functionKey.setup(this.keyman);
@@ -1230,36 +1421,44 @@ KeyMan.KeyMap.prototype.get = function(functionKey){
         functionKeyId = functionKey.id;
     else{
         //TODO: CrossMan find부터 재구조화 필요.
-        // functionKeyId = getData(this.functionKeyMap).find(functionKey);
-        functionKeyId = getEl(this.functionKeyMap).findAll(functionKey);
+        // functionKeyId = getData(this.functionKeys).find(functionKey);
+        functionKeyId = getEl(this.getFunctionKeys()).findAll(functionKey);
         if (functionKeyId.length > 0){
             functionKeyId = functionKeyId[0].id;
         }else{
             return null;
         }
     }
-    return this.functionKeyMap[functionKeyId];
+    return this.functionKeys[functionKeyId];
 };
 KeyMan.KeyMap.prototype.getByTitle = function(functionKey){
     if (!functionKey)
         return;
-    var functionKeyTitle = '';
+    var keyTitle = '';
     if (typeof functionKey == 'string')
-        functionKeyTitle = functionKey;
+        keyTitle = functionKey;
     else if (functionKey instanceof KeyMan.FunctionKey)
-        functionKeyTitle = functionKey.title;
+        keyTitle = functionKey.title;
     else
-        functionKeyTitle = functionKey.title;
+        keyTitle = functionKey.title;
     var result = null;
     var fk;
-    for (var fKeyId in this.functionKeyMap){
-        fk = this.functionKeyMap[fKeyId];
-        if (functionKeyTitle == fk.title){
+    var functionKeys = this.getFunctionKeys();
+    for (var fKeyId in functionKeys){
+        fk = functionKeys[fKeyId];
+        if (keyTitle == fk.title){
             result = fk;
             break;
         }
     }
     return result;
+};
+KeyMan.KeyMap.prototype.getFunctionKeys = function(){
+    return this.functionKeys;
+};
+KeyMan.KeyMap.prototype.set = function(functionKey){
+    this.functionKeys[functionKey.id] = functionKey;
+    return this;
 };
 KeyMan.KeyMap.prototype.has = function(functionKey){
     return !!this.get(functionKey);
@@ -1271,7 +1470,7 @@ KeyMan.KeyMap.prototype.remove = function(functionKey){
     //- Unsetup
     functionKey.unsetup();
     //- Remove Data
-    delete this.functionKeyMap[functionKey.id];
+    delete this.functionKeys[functionKey.id];
     /** Check Event **/
     if (this.keyman)
         this.keyman.execEventListenerByEventName(KeyMan.EVENT_REMOVEDKEY, functionKey);
@@ -1295,7 +1494,8 @@ KeyMan.KeyMap.prototype.removeFromKeyMan = function(){
 };
 KeyMan.KeyMap.prototype.clear = function(){
     console.error('[KeyMap] clear...', this);
-    for (var keyId in this.functionKeyMap){
+    var keyMap = this.getKeys();
+    for (var keyId in keyMap){
         this.remove(keyId);
     }
     return this;
@@ -1327,8 +1527,10 @@ KeyMan.KeyMap.prototype.setup = function(keyman){
     console.error('[KeyMap] setup...', this);
     this.setKeyMan(keyman);
     var keyObject;
-    for (var keyId in this.functionKeyMap){
-        keyObject = this.functionKeyMap[keyId];
+    var functionKeys = this.getFunctionKeys();
+    console.error('7777', functionKeys);
+    for (var keyId in functionKeys){
+        keyObject = functionKeys[keyId];
         keyObject.setup(keyman);
     }
     return this;
@@ -1336,25 +1538,27 @@ KeyMan.KeyMap.prototype.setup = function(keyman){
 KeyMan.KeyMap.prototype.unsetup = function(){
     console.error('[KeyMap] unsetup...', this);
     var keyObject;
-    for (var keyId in this.functionKeyMap){
-        keyObject = this.functionKeyMap[keyId];
+    var functionKeys = this.getFunctionKeys();
+    for (var keyId in functionKeys){
+        keyObject = functionKeys[keyId];
         keyObject.unsetup();
     }
     return this;
 };
 
 KeyMan.KeyMap.copy = function(_data, parentRepoMap, checkNumber){
+    checkNumber = (checkNumber) ? checkNumber : 0;
     //- Make new title
     var oldTitle = _data.title;
-    var checkNumber = (checkNumber) ? checkNumber : 0;
     var newTitle = (checkNumber) ? oldTitle + '_' + checkNumber : oldTitle;
+    //- Naver duplicated title
     for (var id in parentRepoMap){
         var item = parentRepoMap[id];
         if (item.title == newTitle)
             return KeyMan.KeyMap.copy(_data, parentRepoMap, checkNumber +1);
     }
     //- Clone
-    console.error('titl', newTitle, parentRepoMap);
+    console.error('COPY!! title=', newTitle, parentRepoMap);
     return new KeyMan.KeyMap().loadDataFromObject(_data).init({id:null, title:newTitle});
 };
 
@@ -1374,24 +1578,24 @@ KeyMan.KeyMapCluster = function(object){
     this.id;
     this.name;
     this.title;
+    this.order = -1;
     this.modeLock = false;
     this.modeAutoSave = false;
     this.modeMultiMap = false;
-    this.modeDefinedKey = false;
     this.keyMapSelectedWhenMultiMapMode = null;
     this.storagePath = 'keyman';
-    this.functionKeyMaps = {};
-    this.targetKeyMapId;
+
+    /** _FunctionKey **/
+    this.keyMaps = {};
+    this.targetKeyMapId = getData().createUUID();
+    this.orderedKeyMaps = []; //TODO: 이거 뭐야?
     //_
     this.parent = null; //KeyMan
     this.keyman = null; //KeyMan
     this.length = 0;
     //_Index
-    this.inversionIndexedShortcutFunctionKeyIdMapMap = {};
-    this.inversionIndexedCommandFunctionKeyIdMapMap = {};
-    this.inversionIndexedTypingFunctionKeyIdMapMap = {};
-    //_DefinedKey
-    this.definedKeyMap;
+    this.inversionIndexedFunctionKeyIdMapMapMap = {};
+
     this.init(object);
 };
 KeyMan.KeyMapCluster.ERROR_001 = 'You can add only KeyMan.KeyMap';
@@ -1407,8 +1611,39 @@ KeyMan.KeyMapCluster.prototype.init = function(object){
         this.selectKeyMapOnMultiMapMode(this.getFirst());
     return this;
 };
+
+KeyMan.KeyMapCluster.prototype.setup = function(keyman){
+    if (this.keyman){
+        console.error('[KeyMapCluster] setup... Already Setuped !!', this);
+        return this;
+    }
+    if (!keyman)
+        return this;
+    console.error('[KeyMapCluster] setup... ', this);
+    this.setKeyMan(keyman);
+    var keyMaps = this.getKeyMaps();
+    var keyMap;
+    for (var keyMapId in keyMaps){
+        keyMap = keyMaps[keyMapId];
+        keyMap.setup(keyman);
+    }
+    return this;
+};
+KeyMan.KeyMapCluster.prototype.unsetup = function(){
+    var keyMaps = this.getKeyMaps();
+    var keyMap;
+    for (var keyMapId in keyMaps){
+        keyMap = keyMaps[keyMapId];
+        keyMap.unsetup();
+    }
+    return this;
+};
+
 KeyMan.KeyMapCluster.prototype.setId = function(id){
     this.id = id
+    if (this.targetKeyMapId == null){
+        this.targetKeyMapId = id + '_default_fk';
+    }
     return this;
 };
 KeyMan.KeyMapCluster.prototype.setParent = function(parent){
@@ -1431,11 +1666,6 @@ KeyMan.KeyMapCluster.prototype.setModeAutoSave = function(mode){
 KeyMan.KeyMapCluster.prototype.setModeMultiMap = function(mode){
     this.modeMultiMap = mode;
     this.parent.execEventListenerByEventName(KeyMan.EVENT_MODIFIEDOPTION, {modeMultiMap: mode});
-    return this;
-};
-KeyMan.KeyMapCluster.prototype.setModeDefinedKey = function(mode){
-    this.modeDefinedKey = mode;
-    this.parent.execEventListenerByEventName(KeyMan.EVENT_MODIFIEDOPTION, {modeDefinedKey: mode});
     return this;
 };
 KeyMan.KeyMapCluster.prototype.selectKeyMapOnMultiMapMode = function(keyMap){
@@ -1485,11 +1715,13 @@ KeyMan.KeyMapCluster.prototype.loadDataFromObject = function(_data){
     this.modeAutoSave = _data.modeAutoSave;
     this.modeMultiMap = _data.modeMultiMap;
     this.clearKeyMaps();
-    getData(_data.functionKeyMaps).each(function(keyMapId, keyMapData){
-        that.addKeyMap( new KeyMan.KeyMap().loadData(keyMapData) );
-    });
-    if (getData(_data.functionKeyMaps).isEmpty())
+    if (getData(_data.keyMaps).isEmpty()){
         this.newKeyMap();
+    }else{
+        getData(_data.keyMaps).each(function(keyMapId, keyMapData){
+            that.addKeyMap( new KeyMan.KeyMap().loadData(keyMapData) );
+        });
+    }
     return this;
 };
 KeyMan.KeyMapCluster.prototype.mergeData = function(keyMapClusterForMerge, optionMapForMerge){
@@ -1536,7 +1768,7 @@ KeyMan.KeyMapCluster.prototype.extractData = function(){
             title: this.title,
             modeAutoSave: this.modeAutoSave,
             modeMultiMap: this.modeMultiMap,
-            functionKeyMaps: getData(this.functionKeyMaps).collectMap(function(k, v){
+            keyMaps: getData(this.keyMaps).collectMap(function(k, v){
                 return {
                     key: k,
                     value: v.extractData()
@@ -1546,11 +1778,10 @@ KeyMan.KeyMapCluster.prototype.extractData = function(){
     };
 };
 KeyMan.KeyMapCluster.prototype.extractMetaData = function(){
-    var keyMapNameList = getData(this.functionKeyMaps).collect(function(k, v){
-        return k;
-    });
     return {
-        keyMapNameList: keyMapNameList,
+        keyMapNameList: getData(this.keyMaps).collect(function(k, v){
+            return k;
+        }),
         modeLock: this.modeLock
     };
 };
@@ -1558,7 +1789,7 @@ KeyMan.KeyMapCluster.prototype.importData = function(dataObject){
     var that = this;
     this.clearKeyMaps();
     if (dataObject.objectType == 'keymap-cluster'){
-        getData(dataObject._data.functionKeyMaps).each(function(keyMapId, keyMapData){
+        getData(dataObject._data.keyMaps).each(function(keyMapId, keyMapData){
             var keyMap = new KeyMap({id:keyMapId});
             that.addKeyMap( keyMap.importData(keyMapData) );
         });
@@ -1566,7 +1797,7 @@ KeyMan.KeyMapCluster.prototype.importData = function(dataObject){
 };
 
 KeyMan.KeyMapCluster.prototype.traverse = function(callback){
-    getData(this.functionKeyMaps).any(function(keyMapId, keyMap){
+    getData(this.keyMaps).any(function(keyMapId, keyMap){
         callback(keyMap);
     });
     return this;
@@ -1581,8 +1812,10 @@ KeyMan.KeyMapCluster.prototype.add = function(keyObject){
         }
         return this;
     }
-    if (keyObject instanceof KeyMan.KeyMap) {
+    if (keyObject instanceof KeyMan.KeyMap){
         this.addKeyMap(keyObject);
+    }else if (keyObject instanceof KeyMan.FunctionKey){
+        this.getTargetKeyMap().add(keyObject);
     }else if (typeof keyObject == 'object'){
         this.getTargetKeyMap().add(keyObject);
     }else{
@@ -1606,71 +1839,14 @@ KeyMan.KeyMapCluster.prototype.remove = function(keyObject){
     return this;
 };
 KeyMan.KeyMapCluster.prototype.clear = function(){
-    for (var keyMapId in this.functionKeyMaps){
+    var keyMaps = this.getKeyMaps();
+    for (var keyMapId in keyMaps){
         this.remove(keyMapId);
     }
     return this;
 };
 
 
-KeyMan.KeyMapCluster.prototype.setKeyMap = function(keyMap){
-    this.clearKeyMaps();
-    this.addKeyMap(keyMap);
-    //Setup targetKeyMapId
-    var targetKeyMapId = null;
-    var keyMapLength = Object.keys(this.functionKeyMaps).length;
-    if (keyMapLength > 0){
-        for (var keyMapId in this.functionKeyMaps){
-            targetKeyMapId = keyMapId;
-            break;
-        }
-    }
-    this.targetKeyMapId = targetKeyMapId;
-    return this;
-};
-KeyMan.KeyMapCluster.prototype.newKeyMap = function(){
-    return this.addKeyMap( new KeyMan.KeyMap() );
-};
-KeyMan.KeyMapCluster.prototype.addKeyMap = function(keyMap){
-    if (keyMap instanceof Array){
-        for (var i=0; i<keyMap.length; i++){
-            this.addKeyMap(keyMap[i]);
-        }
-        return this;
-    }
-    if (keyMap instanceof KeyMan.KeyMapCluster){
-        var cluster = keyMap;
-        for (var keyMapId in cluster.functionKeyMaps){
-            this.addKeyMap(cluster.functionKeyMaps[keyMapId]);
-        }
-        return this;
-    }else if (keyMap instanceof KeyMan.KeyMap){
-        if (this.hasKeyMap(keyMap))
-            return this;
-        this.functionKeyMaps[keyMap.id] = keyMap;
-        this.length++;
-        /** Check selected map **/
-        if (!this.keyMapSelectedWhenMultiMapMode || this.length == 1)
-            this.selectKeyMapOnMultiMapMode(keyMap);
-        /** Setup **/
-        keyMap.setParent(this);
-        keyMap.setup(this.keyman);
-        /** Event **/
-        //- Does not works when init.
-        if (this.parent)
-            this.parent.execEventListenerByEventName(KeyMan.EVENT_ADDEDMAP, keyMap);
-    }else if (typeof keyMap == 'string'){
-        return this.addKeyMap( new KeyMan.KeyMap({id:keyMap}) );
-    }else{
-        throw KeyMan.KeyMapCluster.ERROR_001;
-    }
-    /** Check Indexing **/
-    // this.addIndex(keyMap);
-    /** Save Auto **/
-    this.saveAuto();
-    console.error('aadddddKeyMap', keyMap, this.functionKeyMaps, this.parent);
-    return this;
-};
 KeyMan.KeyMapCluster.prototype.getKeyMap = function(keyMap){
     if (!keyMap)
         return;
@@ -1678,8 +1854,13 @@ KeyMan.KeyMapCluster.prototype.getKeyMap = function(keyMap){
     if (keyMap instanceof KeyMan.KeyMap)
         id = keyMap.id;
     else
-        id = keyMap
-    return this.functionKeyMaps[id];
+        id = keyMap;
+    return this.keyMaps[id];
+};
+KeyMan.KeyMapCluster.prototype.getFirst = function(){
+    var keyMaps = this.getKeyMaps();
+    var keyMapIdList = Object.keys(keyMaps);
+    return this.getKeyMap(keyMapIdList[0]);
 };
 KeyMan.KeyMapCluster.prototype.getKeyMapByTitle = function(keyMap){
     if (!keyMap)
@@ -1693,8 +1874,8 @@ KeyMan.KeyMapCluster.prototype.getKeyMapByTitle = function(keyMap){
         keyMapTitle = keyMap.title;
     var result = null;
     var km;
-    for (var kmId in this.functionKeyMaps){
-        km = this.functionKeyMaps[kmId];
+    for (var kmId in this.keyMaps){
+        km = this.keyMaps[kmId];
         if (keyMapTitle == km.title){
             result = km;
             break;
@@ -1702,8 +1883,106 @@ KeyMan.KeyMapCluster.prototype.getKeyMapByTitle = function(keyMap){
     }
     return result;
 };
+KeyMan.KeyMapCluster.prototype.getKeyMaps = function(){
+    return this.keyMaps;
+};
+KeyMan.KeyMapCluster.prototype.getTargetKeyMap = function(){
+    var keyMap = this.getKeyMap(this.targetKeyMapId);
+    if (keyMap === null || keyMap === undefined){
+        if (this.targetKeyMapId === null || this.targetKeyMapId === undefined){
+            if (this.hasAnyKeyMap()){
+                keyMap = this.getFirst();
+                console.debug('[KeyMapCluster:' +this.id+ '] Targeting automatically. ', keyMap);
+            }else{
+                keyMap = this.newKeyMap();
+                console.debug('[KeyMapCluster:' +this.id+ '] Generated automatically. ', keyMap);
+            }
+            this.setTargetKeyMap(keyMap);
+        }else{
+            keyMap = this.newKeyMap({id:this.targetKeyMapId});
+            console.debug('[KeyMap:' +this.id+ '] Generated automatically. ', keyMap);
+        }
+    }
+    return keyMap;
+};
+KeyMan.KeyMapCluster.prototype.setKeyMap = function(keyMap){
+    this.clearKeyMaps();
+    this.addKeyMap(keyMap);
+    //Setup targetKeyMapId
+    var targetKeyMapId = null;
+    var keyMaps = this.getKeyMaps();
+    var keyMapLength = Object.keys(keyMaps).length;
+    if (keyMapLength > 0){
+        for (var keyMapId in keyMaps){
+            targetKeyMapId = keyMapId;
+            break;
+        }
+    }
+    this.targetKeyMapId = targetKeyMapId;
+    return this;
+};
+KeyMan.KeyMapCluster.prototype.setTargetKeyMap = function(targetKeyMap){
+    if (!targetKeyMap)
+        return;
+    if (targetKeyMap instanceof KeyMan.KeyMap)
+        targetKeyMap = targetKeyMap.id;
+    if (typeof targetKeyMap == 'string')
+        this.targetKeyMapId = targetKeyMap;
+    return this;
+};
+KeyMan.KeyMapCluster.prototype.newKeyMap = function(object){
+    var newKeyMap = new KeyMan.KeyMap(object);
+    this.addKeyMap( newKeyMap );
+    return newKeyMap;
+};
+KeyMan.KeyMapCluster.prototype.addKeyMap = function(keyMap){
+    if (keyMap instanceof Array){
+        for (var i=0; i<keyMap.length; i++){
+            this.addKeyMap(keyMap[i]);
+        }
+        return this;
+    }
+    if (keyMap instanceof KeyMan.KeyMapCluster){
+        var cluster = keyMap;
+        for (var keyMapId in cluster.keyMaps){
+            this.addKeyMap(cluster.keyMaps[keyMapId]);
+        }
+        return this;
+    }else if (keyMap instanceof KeyMan.KeyMap){
+        if (this.hasKeyMap(keyMap))
+            return this;
+        if (this.keyMaps == null)
+            this.keyMaps = {};
+        this.keyMaps[keyMap.id] = keyMap;
+        this.length++;
+        /** Check selected map **/
+        if (!this.keyMapSelectedWhenMultiMapMode || this.length == 1)
+            this.selectKeyMapOnMultiMapMode(keyMap);
+        /** Setup **/
+        keyMap.setParent(this);
+        keyMap.setup(this.keyman);
+        /** Event **/
+        //- Does not works when init.
+        if (this.parent)
+            this.parent.execEventListenerByEventName(KeyMan.EVENT_ADDEDMAP, keyMap);
+    }else if (typeof keyMap == 'string'){
+        this.newKeyMap({id:keyMap});
+        return this;
+    }else{
+        throw KeyMan.KeyMapCluster.ERROR_001;
+    }
+    /** Check Indexing **/
+    // this.addIndex(keyMap);
+    /** Save Auto **/
+    this.saveAuto();
+    console.debug('[KeyMap] added ' +keyMap.title, keyMap, this.keyMaps, this.parent);
+    return this;
+};
 KeyMan.KeyMapCluster.prototype.hasKeyMap = function(keyMap){
     return !!this.getKeyMap(keyMap);
+};
+KeyMan.KeyMapCluster.prototype.hasAnyKeyMap = function(){
+    return (this.keyMaps !== null) && Object.keys(this.keyMaps).length > 0;
 };
 KeyMan.KeyMapCluster.prototype.removeKeyMap = function(keyMap){
     if (!keyMap)
@@ -1718,12 +1997,12 @@ KeyMan.KeyMapCluster.prototype.removeKeyMap = function(keyMap){
     //Unsetup all keyObject
     keyMap.unsetup();
     //Remove keyMap
-    delete this.functionKeyMaps[id];
+    delete this.keyMaps[id];
     this.length--;
     /** Check selected map **/
     if (this.length == 0)
         this.selectKeyMapOnMultiMapMode(null);
-    /** Check Event **/
+    /** Event **/
     if (this.parent)
         this.parent.execEventListenerByEventName(KeyMan.EVENT_REMOVEDMAP, keyMap);
     /** Save Auto **/
@@ -1732,89 +2011,33 @@ KeyMan.KeyMapCluster.prototype.removeKeyMap = function(keyMap){
     keyMap.setParent(null).setKeyMan(null);
     return this;
 };
-KeyMan.KeyMapCluster.prototype.setup = function(keyman){
-    if (this.keyman){
-        console.error('[KeyMapCluster] setup... Already Setuped !!', this);
-        return this;
-    }
-    if (!keyman)
-        return this;
-    console.error('[KeyMapCluster] setup... ', this);
-    this.setKeyMan(keyman);
-    var keyMap;
-    for (var keyMapId in this.functionKeyMaps){
-        keyMap = this.functionKeyMaps[keyMapId];
-        keyMap.setup(keyman);
-    }
-    return this;
-};
-KeyMan.KeyMapCluster.prototype.unsetup = function(){
-    var keyMap;
-    for (var keyMapId in this.functionKeyMaps){
-        keyMap = this.functionKeyMaps[keyMapId];
-        keyMap.unsetup();
-    }
-    return this;
-};
 KeyMan.KeyMapCluster.prototype.clearKeyMaps = function(){
-    for (var keyMapId in this.functionKeyMaps){
+    var keyMaps = this.getKeyMaps();
+    for (var keyMapId in keyMaps){
         this.removeKeyMap(keyMapId);
     }
     return this;
 };
-KeyMan.KeyMapCluster.prototype.getFirst = function(){
-    var keyMapIdList = Object.keys(this.functionKeyMaps);
-    return this.getKeyMap(keyMapIdList[0]);
-};
-KeyMan.KeyMapCluster.prototype.getFunctionKeyMaps = function(){
-    return this.functionKeyMaps;
-};
-KeyMan.KeyMapCluster.prototype.getTargetKeyMap = function(){
-    return this.getKeyMap(this.targetKeyMapId);
-};
-KeyMan.KeyMapCluster.prototype.setTargetKeyMap = function(targetKeyMap){
-    if (!targetKeyMap)
-        return;
-    if (targetKeyMap instanceof KeyMan.KeyMap)
-        targetKeyMap = targetKeyMap.id;
-    if (typeof targetKeyMap == 'string')
-        this.targetKeyMapId = targetKeyMap;
-    return this;
-};
 
 KeyMan.KeyMapCluster.prototype.getIndexedKeyMap = function(type){
-    var inversionIndexedSomeFunctionKeyIdMapMap;
-    switch (type){
-        case KeyMan.TYPE_TYPING: inversionIndexedSomeFunctionKeyIdMapMap = this.getIndexedTypingKeyMap(); break;
-        case KeyMan.TYPE_COMMAND: inversionIndexedSomeFunctionKeyIdMapMap = this.getIndexedCommandKeyMap(); break;
-        case KeyMan.TYPE_SHORTCUT: default: inversionIndexedSomeFunctionKeyIdMapMap = this.getIndexdShortcutKeyMap(); break;
+    var inversionIndexedFunctionKeyIdMapMap = this.inversionIndexedFunctionKeyIdMapMapMap[type];
+    if (!inversionIndexedFunctionKeyIdMapMap){
+        inversionIndexedFunctionKeyIdMapMap = this.inversionIndexedFunctionKeyIdMapMapMap[type] = {};
     }
-    return inversionIndexedSomeFunctionKeyIdMapMap;
+    return inversionIndexedFunctionKeyIdMapMap;
 };
-KeyMan.KeyMapCluster.prototype.getIndexdShortcutKeyMap = function(){
-    return this.inversionIndexedShortcutFunctionKeyIdMapMap;
-};
-KeyMan.KeyMapCluster.prototype.getIndexedCommandKeyMap = function(){
-    return this.inversionIndexedCommandFunctionKeyIdMapMap;
-};
-KeyMan.KeyMapCluster.prototype.getIndexedTypingKeyMap = function(){
-    return this.inversionIndexedTypingFunctionKeyIdMapMap;
-};
-KeyMan.KeyMapCluster.prototype.getIndexedShortcutKeyCount = function(){
-    return Object.keys(this.inversionIndexedShortcutFunctionKeyIdMapMap).length;
-};
-KeyMan.KeyMapCluster.prototype.getIndexedCommandKeyCount = function(){
-    return Object.keys(this.inversionIndexedCommandFunctionKeyIdMapMap).length;
-};
-KeyMan.KeyMapCluster.prototype.getIndexedTypingKeyCount = function(){
-    return Object.keys(this.inversionIndexedTypingFunctionKeyIdMapMap).length;
+KeyMan.KeyMapCluster.prototype.getIndexedKeyCount = function(type){
+    var inversionIndexedFunctionKeyIdMapMap = this.getIndexedKeyMap(type)
+    var inversionIndexedFunctionKeyIdMap = Object.keys(inversionIndexedFunctionKeyIdMapMap);
+    var length = inversionIndexedFunctionKeyIdMap.length
+    return length;
 };
 
 KeyMan.KeyMapCluster.prototype.addIndex = function(functionKey){
     if (functionKey instanceof KeyMan.KeyMap){
         var keyMap = functionKey;
-        for (var functionKeyId in keyMap.functionKeyMap){
-            this.addIndex(keyMap.functionKeyMap[functionKeyId]);
+        for (var functionKeyId in keyMap.keyMap){
+            this.addIndex(keyMap.keyMap[functionKeyId]);
         }
         return this;
     }
@@ -1859,8 +2082,8 @@ KeyMan.KeyMapCluster.prototype.hasIndex = function(functionKey){
 KeyMan.KeyMapCluster.prototype.removeIndex = function(functionKey){
     if (functionKey instanceof KeyMan.KeyMap){
         var keyMap = functionKey;
-        for (var functionKeyId in keyMap.functionKeyMap){
-            this.removeIndex(keyMap.functionKeyMap[functionKeyId]);
+        for (var functionKeyId in keyMap.keyMap){
+            this.removeIndex(keyMap.keyMap[functionKeyId]);
         }
         return this;
     }
@@ -1875,21 +2098,22 @@ KeyMan.KeyMapCluster.prototype.removeIndex = function(functionKey){
     for (var i=0, key; i<keys.length; i++){
         key = keys[i];
         if (inversionIndexedSomeFunctionKeyIdMapMap[key]){
-            var functionKeyMap = inversionIndexedSomeFunctionKeyIdMapMap[key];
-            delete functionKeyMap[functionKey.id];
-            if (Object.keys(functionKeyMap).length == 0)
+            var keyMap = inversionIndexedSomeFunctionKeyIdMapMap[key];
+            delete keyMap[functionKey.id];
+            if (Object.keys(keyMap).length == 0)
                 delete inversionIndexedSomeFunctionKeyIdMapMap[key];
         }
     }
     return this;
 };
 
-KeyMan.KeyMapCluster.prototype.isOn = function(downedShortcutKeyId){
-    var shortcutFunctionKey;
-    for (var functionKeyMap in this.functionKeyMaps){
-        shortcutFunctionKey = functionKeyMap[downedShortcutKeyId];
-        if (shortcutFunctionKey)
-            return shortcutFunctionKey.isPressed();
+KeyMan.KeyMapCluster.prototype.isOn = function(downedShortcutKeyId){ //TODO: 조금 이상하다!? 다시 확인 필요.
+    var keyMap;
+    for (var keyMapId in this.keyMaps){
+        keyMap = this.keyMaps[keyMapId];
+        if (keyMap.isOn(downedShortcutKeyId)){
+            return true;
+        }
     }
     return false;
 };
@@ -1901,6 +2125,24 @@ KeyMan.KeyMapCluster.prototype.unlock = function(){
     this.modeLock = false;
     return this;
 };
+
+
+
+/****************************************************************************************************
+ *
+ *
+ * FunctionKeyMapCluster
+ *
+ *
+ ****************************************************************************************************/
+KeyMan.FunctionKeyMapCluster = getClazz(function(){
+    KeyMan.KeyMapCluster.apply(this, arguments);
+    this.id = 'function';
+    this.name = 'function';
+})
+.extend(KeyMan.KeyMapCluster)
+.returnFunction();
+
 
 
 /*************************
@@ -1916,27 +2158,38 @@ KeyMan.Storage = getClazz(function(){
 .returnFunction();
 
 KeyMan.Storage.prototype.addKeyMap = function(keyMap){ //- Just store
+    if (keyMap instanceof KeyMan.KeyMapCluster){
+        var cluster = keyMap;
+        for (var keyMapId in cluster.keyMaps){
+            this.addFunctionKeyMap(cluster.keyMaps[keyMapId]);
+        }
+        return this;
+    }
+    this.addFunctionKeyMap(keyMap);
+    return this;
+};
+KeyMan.Storage.prototype.removeKeyMap = function(keyMap){ //- Just unstore
+    this.removeFunctionKeyMap(keyMap);
+    return this;
+};
+
+KeyMan.Storage.prototype.addFunctionKeyMap = function(keyMap){ //- Just store
     if (keyMap instanceof Array){
         for (var i=0; i<keyMap.length; i++){
             this.addKeyMap(keyMap[i]);
         }
         return this;
     }
-    if (keyMap instanceof KeyMan.KeyMapCluster){
-        var cluster = keyMap;
-        for (var keyMapId in cluster.functionKeyMaps){
-            this.addKeyMap(cluster.functionKeyMaps[keyMapId]);
-        }
-        return this;
-    }
     if (this.hasKeyMap(keyMap))
         return this;
     //Add keyMap
-    this.functionKeyMaps[keyMap.id] = keyMap;
+    if (this.keyMaps == null)
+        this.keyMaps = {};
+    this.keyMaps[keyMap.id] = keyMap;
     this.length++;
     return this;
 };
-KeyMan.Storage.prototype.removeKeyMap = function(keyMap){ //- Just unstore
+KeyMan.Storage.prototype.removeFunctionKeyMap = function(keyMap){ //- Just unstore
     var id = null;
     if (keyMap instanceof KeyMan.KeyMap)
         id = keyMap.id;
@@ -1944,12 +2197,66 @@ KeyMan.Storage.prototype.removeKeyMap = function(keyMap){ //- Just unstore
         id = keyMap;
         keyMap = this.getKeyMap(id);
     }
-    if (this.hasKeyMap(keyMap))
+    if (!this.hasKeyMap(keyMap))
         return this;
     //Remove keyMap
-    delete this.functionKeyMaps[id];
+    delete this.keyMaps[id];
     this.length--;
     return this;
+};
+
+
+
+/****************************************************************************************************
+ *
+ *
+ * KeyType
+ *
+ *
+ ****************************************************************************************************/
+KeyMan.KeyType = function(keyman){
+    this.name = 'rome';
+    this.type = 'rome';
+    this.iconText = 'A';
+
+    this.keyman = keyman;
+    this.init();
+};
+KeyMan.KeyType.prototype.init = function(){
+    //Implements..
+};
+KeyMan.KeyType.prototype.setup = function(){
+    //Implements..
+};
+KeyMan.KeyType.prototype.setKeyMan = function(keyman){
+    this.keyman = keyman;
+    return this;
+};
+KeyMan.KeyType.prototype.getIconText = function(){
+    return this.iconText;
+};
+KeyMan.KeyType.prototype.convertKeyToKey = function(eventData){
+    var convertedKey;
+    var key = eventData.key;
+    var keyName = eventData.event.key;
+    var upperKey = eventData.upperKey;
+    var shiftPressed = eventData.event.shiftKey;
+
+    if (upperKey == KeyMan.SPACE){
+        convertedKey = " ";
+    }else if (key != null && key.length == 1){
+        convertedKey = keyName;
+    }
+    return convertedKey;
+};
+KeyMan.KeyType.prototype.assemble = function(convertedKey, currentKeyStepProcess, eventData){
+    var newKeySteps = [
+        new KeyMan.KeyStep()
+                .add(convertedKey)
+                .setAssembledChar(convertedKey)
+                .setStatusCompleteChar(true)
+    ];
+    return newKeySteps;
 };
 
 
@@ -1958,14 +2265,19 @@ KeyMan.Storage.prototype.removeKeyMap = function(keyMap){ //- Just unstore
 /****************************************************************************************************
  *
  *
- * Handler
+ * KeyHandler
  *
  *
  ****************************************************************************************************/
-KeyMan.KeyHandler = function(keyman){
-    this.keyman = keyman;
-    this.timeForContinuousInspection = 300;
-    this.timeForJudgmentSimultaneousKeyPress = 20;
+KeyMan.KeyHandler = function(object){
+    this.name = 'No Name';
+    this.type = 'No Type';
+
+    this.order = -1;
+    this.keyman;
+    // this.timeForContinuousInspection = 300;
+    this.timeForContinuousInspection = 1000;
+    this.timeForJudgmentSimultaneousKeyPress = 100;
     this.indexedFunctionKeyBufferMap = [];
     this.matchingStartKeyStepIndex = -1;
     this.matchingProcessKeyStepIndex = -1;
@@ -1974,14 +2286,42 @@ KeyMan.KeyHandler = function(keyman){
     this.keydownEventHandler = null;
     this.beforeKeyupEventHandler = null;
     this.keyupEventHandler = null;
+
+    //TODO: 추후
+
     this.init();
-;};
+};
 KeyMan.KeyHandler.prototype.init = function(){
     //Implements..
 };
-KeyMan.KeyHandler.prototype.setup = function(){
+KeyMan.KeyHandler.prototype.setup = function(keyman){
+    this.keyman = keyman;
     //Implements..
+    return this;
 };
+KeyMan.KeyHandler.prototype.unsetup = function(){
+    this.keyman = null;
+    //Implements..
+    return this;
+};
+KeyMan.KeyHandler.prototype.setKeyMan = function(keyman){
+    this.keyman = keyman;
+    return this;
+};
+KeyMan.KeyHandler.prototype.setParent = function(parent){
+    this.parent = parent;
+    return this;
+};
+
+KeyMan.KeyHandler.prototype.checkMyTypeByFunctionKey = function(functionKey){
+    //Implements..
+    return false;
+};
+KeyMan.KeyHandler.prototype.correctKeys = function(keys){
+    //Implements..
+    return keys;
+};
+
 KeyMan.KeyHandler.prototype.getBeforeKeydownEventHandler = function(){
     return this.beforeKeydownEventHandler;
 };
@@ -2011,7 +2351,44 @@ KeyMan.KeyHandler.prototype.setKeyupEventHandler = function(keyupEventHandler){
     return this;
 };
 
+KeyMan.KeyHandler.prototype.keydown = function(eventData){
+    //Implements..
+};
+KeyMan.KeyHandler.prototype.beforeKeydown = function(eventData){
+    //Implements..
+};
+KeyMan.KeyHandler.prototype.keyup = function(eventData){
+    //Implements..
+};
+KeyMan.KeyHandler.prototype.beforeKeyup = function(eventData){
+    //Implements..
+};
 
+
+KeyMan.KeyHandler.prototype.addKeyStep = function(keyStep){
+    if (keyStep instanceof Array){
+        for (var i=0; i<keyStep.length; i++){
+            this.addKeyStep(keyStep[i]);
+        }
+        return;
+    }
+    this.keyStepProcessList.push(keyStep);
+};
+KeyMan.KeyHandler.prototype.removeKeyStep = function(keyStep){
+    if (keyStep instanceof Array){
+        for (var i=0; i<keyStep.length; i++){
+            this.removeKeyStep(keyStep[i]);
+        }
+        return;
+    }
+    var index;
+    if (keyStep instanceof KeyMan.KeyStep){
+        index = this.keyStepProcessList.indexOf(keyStep);
+    }else{
+        index = keyStep;
+    }
+    this.keyStepProcessList.splice(index, 1);
+};
 
 
 
@@ -2023,13 +2400,18 @@ KeyMan.KeyHandler.prototype.setKeyupEventHandler = function(keyupEventHandler){
  *
  ****************************************************************************************************/
 KeyMan.KeyStep = function(keys){
+    this.assembledChar = '';
     this.keys = keys ? keys : [];
     this.length = keys ? keys.length : 0;
     this.status = KeyMan.KeyStep.STATUS_NONE;
+    this.statusCompleteChar = false;
+
+    this.makingAssembledCharProgress = [];
 };
 KeyMan.KeyStep.STATUS_NONE = 0;
 KeyMan.KeyStep.STATUS_CHECKING = 1;
-KeyMan.KeyStep.STATUS_RUN = 2;
+KeyMan.KeyStep.STATUS_CHECKED = 2;
+KeyMan.KeyStep.STATUS_RUN = 3;
 
 KeyMan.KeyStep.prototype.setStatus = function(status){
     this.status = status;
@@ -2038,23 +2420,105 @@ KeyMan.KeyStep.prototype.setStatus = function(status){
 KeyMan.KeyStep.prototype.checkStatus = function(status){
     return this.status == status;
 };
+KeyMan.KeyStep.prototype.getStatusCompleteChar = function(){
+    return this.statusCompleteChar;
+};
+KeyMan.KeyStep.prototype.setStatusCompleteChar = function(statusCompleteChar){
+    this.statusCompleteChar = statusCompleteChar
+    return this;
+};
 
 KeyMan.KeyStep.prototype.add = function(key){
     this.keys.push(key);
     this.length += 1;
     return this;
 };
+KeyMan.KeyStep.prototype.set = function(key){
+    if (key instanceof Array){
+        this.keys = key;
+    }else{
+        this.keys = [key];
+    }
+    this.countKeys();
+    return this;
+};
+KeyMan.KeyStep.prototype.pop = function(){
+    if (this.length == 0)
+        return null;
+    var key = this.keys.pop();
+    this.length -= 1;
+    return key;
+};
 KeyMan.KeyStep.prototype.get = function(index){
     return this.keys[index];
 };
+KeyMan.KeyStep.prototype.getKeys = function(){
+    return this.keys;
+};
+KeyMan.KeyStep.prototype.countKeys = function(){
+    this.length = this.keys.length;
+    return this.length;
+};
+KeyMan.KeyStep.prototype.hasKey = function(checkKey){
+    for (var i=0; i<this.keys.length; i++){
+        if (checkKey == this.keys[i])
+            return true;
+    }
+    return false;
+};
+
+
+KeyMan.KeyStep.prototype.getAssembledChar = function(){
+    return this.assembledChar;
+};
+KeyMan.KeyStep.prototype.setAssembledChar = function(assembledChar){
+    this.assembledChar = assembledChar;
+    return this;
+};
+KeyMan.KeyStep.prototype.saveProgress = function(){
+    var assembledChar = this.getAssembledChar();
+    if (this.makingAssembledCharProgress.length == 0){
+        this.makingAssembledCharProgress.push(assembledChar);
+    }else{
+        var lastIndex = this.makingAssembledCharProgress.length -1;
+        var lastAssembledChar = this.makingAssembledCharProgress[lastIndex];
+        if (lastAssembledChar != assembledChar){
+            this.makingAssembledCharProgress.push(assembledChar);
+        }
+    }
+    return this;
+};
+KeyMan.KeyStep.prototype.popProgress = function(){
+    var popedAssembledChar = this.makingAssembledCharProgress.pop();
+    if (this.makingAssembledCharProgress.length == 0){
+        //None
+    }else{
+        var lastIndex = this.makingAssembledCharProgress.length -1;
+        var lastAssembledChar = this.makingAssembledCharProgress[lastIndex];
+        this.setAssembledChar(lastAssembledChar);
+    }
+    return popedAssembledChar;
+};
+
 KeyMan.KeyStep.prototype.equals = function(keyStep){
     if (!keyStep || keyStep.length != this.length)
-        return;
+        return false;
     for (var i=0; i<keyStep.length; i++){
         if (keyStep.get(i) != this.get(i))
             return false;
     }
     return true;
+};
+KeyMan.KeyStep.prototype.in = function(keyStep, number){
+    if (!keyStep || keyStep.length < this.length)
+        return false;
+    for (var i=0, matchedCount=0; i<keyStep.length; i++){
+        if (keyStep.get(i) == this.get(i)){
+            if (++matchedCount == number)
+                return true;
+        }
+    }
+    return false;
 };
 KeyMan.KeyStep.prototype.clone = function(){
     var newInstance = new KeyMan.KeyStep();
@@ -2065,6 +2529,7 @@ KeyMan.KeyStep.prototype.clone = function(){
     }
     return newInstance;
 };
+
 
 
 
@@ -2314,40 +2779,28 @@ KeyMan.convertToKeyExpression = function(keys){
     return keyExpression;
 };
 
-KeyMan.getHandlerType = function(keyStepList){
-    return (keyStepList.length > 1) ? KeyMan.TYPE_COMMAND : KeyMan.TYPE_SHORTCUT;
+
+KeyMan.prototype.getDefaultKeyHandler = function(){
+    return this.getKeyHandlerByType(this.defaultKeyHandlerType);
 };
 
-KeyMan.getHandler = function(type, keyman, functionKey){
-    switch (type){
-        case KeyMan.TYPE_TYPING:
-            return new KeyMan.TypingKeyHandler(keyman, functionKey);
-            break;
-        case KeyMan.TYPE_COMMAND:
-            return new KeyMan.CommandKeyHandler(keyman, functionKey);
-            break;
-        case KeyMan.TYPE_SHORTCUT:
-        default:
-            return new KeyMan.ShortcutKeyHandler(keyman, functionKey);
-            break;
-    }
+KeyMan.prototype.getKeyHandlerNames = function(){
+    return getData(this.keyHandlers).collect(function(type, keyHandler){ return keyHandler.name; });
 };
 
-KeyMan.getHandlerTypeByName = function(name){
-    switch (name){
-        case 'TYPING': return KeyMan.TYPE_TYPING; break;
-        case 'COMMAND': return KeyMan.TYPE_COMMAND; break;
-        case 'SHORTCUT': default: return KeyMan.TYPE_SHORTCUT; break;
-    }
-}
-
-KeyMan.getNameByHandlerType = function(type){
-    switch (type){
-        case KeyMan.TYPE_TYPING: return 'TYPING'; break;
-        case KeyMan.TYPE_COMMAND: return 'COMMAND'; break;
-        case KeyMan.TYPE_SHORTCUT: default: return 'SHORTCUT'; break;
-    }
+KeyMan.prototype.getKeyHandlerTypes = function(){
+    return getData(this.keyHandlers).collect(function(type, keyHandler){ return keyHandler.type; });
 };
+
+KeyMan.prototype.getKeyHandlerByType = function(findingType){
+    return this.keyHandlers[findingType];
+};
+
+KeyMan.prototype.getKeyHandlerByName = function(findingName){
+    return getData(this.keyHandlers).find(function(type, keyHandler){ return keyHandler.name == findingName; });
+};
+
+
 
 KeyMan.encodeData = function(somePlanData){
     if (typeof somePlanData == 'string'){

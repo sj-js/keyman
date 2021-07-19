@@ -296,6 +296,9 @@ table.key-item .key-item-runner-data {
     display: inline-block; padding: 5px; border: 1px solid #2c2c2c; border-radius: 5px; background: #9ebcae;
 }
 .key-step.checking > kbd {
+    border: 0px solid #2c2c2c; border-radius: 5px; background: #e0daa5;
+}
+.key-step.checked > kbd {
     border: 0px solid #2c2c2c; border-radius: 5px; background: #dfd220;
 }
 .key-step.run > kbd {
